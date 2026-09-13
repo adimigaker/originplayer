@@ -14,6 +14,7 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
   const [ep, setEp] = useState(epAwal)
   const [tunnel, setTunnel] = useState('')
   const [ditonton, setDitonton] = useState(false)
+  const [prog, setProg] = useState({})
 
   useEffect(() => {
     let hidup = true
@@ -23,6 +24,7 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
       if (typeof window !== 'undefined' && sessionStorage.getItem('ps_unlock_' + code)) setTerkunci(false)
       setTunnel(await tunnelBase())
       setDitonton(!!bacaProgress(code)[item.id + ':' + epAwal])
+      setProg(bacaProgress(code))
     })()
     return () => { hidup = false }
   }, [code])
@@ -31,6 +33,7 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
     if (ditonton) hapusProgress(code, item.id, ep)
     else simpanProgress(code, item.id, ep, 0, 0)
     setDitonton(!ditonton)
+    setProg(bacaProgress(code))
   }
 
   const bukaKunci = async (e) => {
@@ -98,10 +101,16 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
               Semua episode ({embeds.length})
             </div>
             <div style={gridEp}>
-              {[...embeds].sort((a, b) => Number(a.ep) - Number(b.ep)).map((e) => (
-                <a key={e.ep} href={linkEp(e.ep)}
-                  style={Number(e.ep) === Number(ep) ? epOnGrid : epGrid}>E{e.ep}</a>
-              ))}
+              {[...embeds].sort((a, b) => Number(a.ep) - Number(b.ep)).map((e) => {
+                const sudah = !!prog[item.id + ':' + e.ep]
+                const aktif = Number(e.ep) === Number(ep)
+                return (
+                  <a key={e.ep} href={linkEp(e.ep)}
+                    style={aktif ? epOnGrid : sudah ? { ...epGrid, color: '#00a4dc' } : epGrid}>
+                    E{e.ep}{sudah ? ' ✓' : ''}
+                  </a>
+                )
+              })}
             </div>
           </section>
         )}
