@@ -18,7 +18,7 @@ create table if not exists ps_playlist_items (
   synopsis text,
   genre text,
   rating float,
-  cast text,
+  "cast" text,
   director text,
   duration text,
   tmdb_id int,
