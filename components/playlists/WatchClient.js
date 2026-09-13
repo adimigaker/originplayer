@@ -3,7 +3,7 @@
 // Halaman nonton langsung: /p/KODE/slug-judul/EP
 // Player native (tidak autoplay) + gate PIN. Navigasi antar episode = reload.
 import { useState, useEffect } from 'react'
-import { sha256hex, tunnelBase, simpanProgress } from '@/lib/playlist'
+import { sha256hex, tunnelBase, simpanProgress, bacaProgress, hapusProgress } from '@/lib/playlist'
 import VideoPlayer from '@/components/playlists/VideoPlayer'
 import Ikon from '@/components/playlists/Ikon'
 
@@ -13,6 +13,7 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
   const [pinErr, setPinErr] = useState('')
   const [ep, setEp] = useState(epAwal)
   const [tunnel, setTunnel] = useState('')
+  const [ditonton, setDitonton] = useState(false)
 
   useEffect(() => {
     let hidup = true
@@ -21,9 +22,16 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
       if (!hidup) return
       if (typeof window !== 'undefined' && sessionStorage.getItem('ps_unlock_' + code)) setTerkunci(false)
       setTunnel(await tunnelBase())
+      setDitonton(!!bacaProgress(code)[item.id + ':' + epAwal])
     })()
     return () => { hidup = false }
   }, [code])
+
+  const toggleTonton = () => {
+    if (ditonton) hapusProgress(code, item.id, ep)
+    else simpanProgress(code, item.id, ep, 0, 0)
+    setDitonton(!ditonton)
+  }
 
   const bukaKunci = async (e) => {
     e.preventDefault()
@@ -81,6 +89,11 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
         {item.type === 'series' && embeds.length > 1 && (
           <section style={{ maxWidth: 560, margin: '6px auto 0' }}>
             <NavEp code={code} slug={item.slug} embeds={embeds} ep={ep} />
+            <div style={{ textAlign: 'center', marginTop: 10 }}>
+              <button onClick={toggleTonton} style={ditonton ? tontonOn : tontonBtn}>
+                <Ikon nama="cek" size={14} /> {ditonton ? 'Sudah ditonton — batalkan' : 'Tandai sudah ditonton'}
+              </button>
+            </div>
             <div style={{ color: '#888', fontSize: 12, marginTop: 14, marginBottom: 8, textAlign: 'center' }}>
               Semua episode ({embeds.length})
             </div>
@@ -128,6 +141,8 @@ const btn = { width: '100%', padding: 12, background: '#00a4dc', color: '#fff', 
 const epBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', textDecoration: 'none', fontSize: 14 }
 const epOn = { ...epBtn, borderColor: '#00a4dc', color: '#00a4dc', fontWeight: 'bold' }
 const navBtn = { padding: '10px 18px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 10, cursor: 'pointer', textDecoration: 'none', fontSize: 15, display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 96, justifyContent: 'center' }
+const tontonBtn = { padding: '8px 16px', background: 'transparent', color: '#888', border: '1px dashed #333d5c', borderRadius: 10, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }
+const tontonOn = { ...tontonBtn, color: '#00a4dc', borderColor: '#00a4dc', borderStyle: 'solid' }
 const navMati = { ...navBtn, opacity: 0.35 }
 const navTengah = { color: '#fff', fontSize: 14, fontWeight: 'bold', minWidth: 72, textAlign: 'center' }
 const gridEp = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))', gap: 8 }

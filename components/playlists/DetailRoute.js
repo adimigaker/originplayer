@@ -60,7 +60,11 @@ export default function DetailRoute({ code, hasPinServer, item }) {
         <div style={{ height: 220, background: `url(${item.backdrop}) center/cover`, WebkitMaskImage: 'linear-gradient(#000, transparent)', maskImage: 'linear-gradient(#000, transparent)' }} />
       )}
       <main style={{ padding: '0 20px 40px', maxWidth: 900, margin: 'auto', marginTop: item.backdrop ? -60 : 12 }}>
-        <a href={`/p/${code}`} style={{ color: '#00a4dc', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <a
+          href={`/p/${code}`}
+          onClick={(e) => { e.preventDefault(); window.location.assign(`/p/${code}`) }}
+          style={{ color: '#00a4dc', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', position: 'relative', zIndex: 2 }}
+        >
           <Ikon nama="kembali" size={14} /> {code}
         </a>
         <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
@@ -78,11 +82,19 @@ export default function DetailRoute({ code, hasPinServer, item }) {
 
         <h3 style={{ marginTop: 24 }}>{item.type === 'series' ? 'Episode' : 'Putar'}</h3>
         {embeds.length === 0 && <p style={{ color: '#888', fontSize: 13 }}>Belum ada link tonton.</p>}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {embeds.map((e) => {
+        <div style={{ color: '#888', fontSize: 12, marginTop: 14, marginBottom: 8, textAlign: 'center' }}>
+          {item.type === 'series' ? `Semua episode (${embeds.length})` : 'Tonton'}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))', gap: 8, maxWidth: 560, margin: '0 auto' }}>
+          {[...embeds].sort((a, b) => Number(a.ep) - Number(b.ep)).map((e) => {
             const ditonton = prog[item.id + ':' + e.ep]
             return (
-              <a key={e.ep} href={linkEp(e.ep)} style={{ ...epBtn, ...(ditonton ? { borderColor: '#00a4dc' } : {}) }}>
+              <a key={e.ep} href={linkEp(e.ep)} style={{
+                padding: '10px 0', background: '#222b45', color: ditonton ? '#00a4dc' : '#fff',
+                border: '1px solid #333d5c', borderColor: ditonton ? '#00a4dc' : '#333d5c',
+                borderRadius: 10, textDecoration: 'none', fontSize: 14, textAlign: 'center',
+                fontWeight: ditonton ? 'bold' : 'normal',
+              }}>
                 {item.type === 'series' ? 'E' + e.ep : 'Putar'}{ditonton ? ' ✓' : ''}
               </a>
             )
