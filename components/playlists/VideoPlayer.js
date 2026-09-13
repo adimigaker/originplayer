@@ -377,14 +377,18 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
 
   const gantiKecepatan = (spd) => {
     const v = vid()
-    if (v) v.playbackRate = parseFloat(spd)
+    const n = parseFloat(spd)
+    if (v) v.playbackRate = n
+    setKecepatan(n)
     setCfgBuka(false)
   }
 
   return (
     <div>
+      <style>{`.vp-stage:fullscreen,.vp-stage:-webkit-full-screen{width:100%!important;height:100%!important;display:flex!important;flex-direction:column!important;justify-content:center!important;background:#000!important;border-radius:0!important}.vp-stage:fullscreen video,.vp-stage:-webkit-full-screen video{max-height:100%!important}`}</style>
       <div
         ref={stageRef}
+        className="vp-stage"
         onClick={(e) => { if (e.target.closest('button,select,input')) return; ketuk(e.clientX) }}
         style={{ position: 'relative', background: '#000', borderRadius: 12, overflow: 'hidden', cursor: uiSembunyi ? 'none' : 'default' }}
       >
@@ -411,25 +415,32 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
         {flash === 'L' && <span style={{ ...flashSt, left: 14 }}>−10 dtk</span>}
         {flash === 'R' && <span style={{ ...flashSt, right: 14 }}>+10 dtk</span>}
 
-        {/* popup setelan */}
+        {/* setelan: bottom sheet + sentuh luar = tutup */}
         {cfgBuka && (
-          <div style={cfg} onClick={(e) => e.stopPropagation()}>
-            <label style={cfgLbl}>Kualitas</label>
-            {kualitas.length > 1 ? (
-              <select value={qAktif} onChange={(e) => gantiKualitas(parseInt(e.target.value))} style={cfgSel}>
-                {kualitas.map((k) => <option key={k.i} value={k.i}>{k.label}</option>)}
-              </select>
-            ) : (
-              <div style={{ fontSize: 13, color: '#888' }}>Otomatis</div>
-            )}
-            <label style={cfgLbl}>Kecepatan</label>
-            <select value={String(kecepatan)} onChange={(e) => { setKecepatan(parseFloat(e.target.value)); gantiKecepatan(e.target.value) }} style={cfgSel}>
-              <option value="0.5">0.5x</option>
-              <option value="1">1x</option>
-              <option value="1.5">1.5x</option>
-              <option value="2">2x</option>
-            </select>
-          </div>
+          <>
+            <div onClick={(e) => { e.stopPropagation(); setCfgBuka(false); tampilUI() }} style={sheetBg} />
+            <div style={sheet} onClick={(e) => e.stopPropagation()}>
+              <div style={sheetGrip} />
+              <div style={sheetJudul}>Setelan</div>
+              <div style={sheetLbl}>Kualitas</div>
+              {kualitas.length > 1 ? (
+                kualitas.map((k) => (
+                  <button key={k.i} onClick={() => gantiKualitas(k.i)} style={k.i === qAktif ? optOn : opt}>
+                    <span style={{ flex: 1, textAlign: 'left' }}>{k.label}</span>
+                    {k.i === qAktif && <Ikon nama="cek" size={16} />}
+                  </button>
+                ))
+              ) : (
+                <div style={sheetKosong}>Otomatis</div>
+              )}
+              <div style={sheetLbl}>Kecepatan</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[0.5, 1, 1.5, 2].map((s) => (
+                  <button key={s} onClick={() => gantiKecepatan(s)} style={s === kecepatan ? optOnFlex : optFlex}>{s}x</button>
+                ))}
+              </div>
+            </div>
+          </>
         )}
 
         {/* kontrol bawah */}
@@ -456,6 +467,13 @@ const qBadge = { fontSize: 14, fontWeight: 'bold', color: '#fff' }
 const waktu_ = { fontSize: 12, color: '#eee', whiteSpace: 'nowrap' }
 const bigBtn = { width: 76, height: 76, borderRadius: '50%', background: 'rgba(20,20,20,.55)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const flashSt = { position: 'absolute', top: '38%', fontSize: 15, fontWeight: 'bold', color: '#fff', background: 'rgba(0,0,0,.55)', padding: '8px 14px', borderRadius: 20, zIndex: 5 }
-const cfg = { position: 'absolute', right: 10, bottom: 76, background: '#1a1a24', border: '1px solid #444', borderRadius: 8, padding: 10, zIndex: 6, minWidth: 200 }
-const cfgLbl = { display: 'block', fontSize: 12, color: '#aaa', marginTop: 6 }
-const cfgSel = { width: '100%', background: '#1a1a24', color: '#eee', border: '1px solid #444', borderRadius: 6, padding: 8, fontSize: 13, margin: '2px 0 6px' }
+const sheetBg = { position: 'absolute', inset: 0, zIndex: 6 }
+const sheet = { position: 'absolute', left: 0, right: 0, bottom: 0, background: '#161624', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: '8px 16px 20px', zIndex: 7 }
+const sheetGrip = { width: 40, height: 4, borderRadius: 2, background: '#444', margin: '4px auto 10px' }
+const sheetJudul = { fontSize: 15, fontWeight: 'bold', color: '#fff', marginBottom: 4 }
+const sheetLbl = { fontSize: 12, color: '#888', marginTop: 10, marginBottom: 6 }
+const sheetKosong = { fontSize: 13, color: '#888' }
+const opt = { display: 'flex', alignItems: 'center', width: '100%', background: 'transparent', color: '#eee', border: '1px solid #333d5c', borderRadius: 8, padding: '10px 12px', fontSize: 14, cursor: 'pointer', marginBottom: 6 }
+const optOn = { ...opt, borderColor: AKSEN, color: AKSEN }
+const optFlex = { flex: 1, background: 'transparent', color: '#eee', border: '1px solid #333d5c', borderRadius: 8, padding: '8px 0', fontSize: 14, cursor: 'pointer' }
+const optOnFlex = { ...optFlex, borderColor: AKSEN, color: AKSEN, fontWeight: 'bold' }
