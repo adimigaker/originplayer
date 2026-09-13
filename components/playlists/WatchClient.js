@@ -79,22 +79,25 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
           <p style={{ color: '#f0ad4e' }}>Episode ini belum punya link tonton.</p>
         )}
         {item.type === 'series' && embeds.length > 1 && (
-          <>
+          <section style={{ maxWidth: 560, margin: '6px auto 0' }}>
             <NavEp code={code} slug={item.slug} embeds={embeds} ep={ep} />
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-              {embeds.map((e) => (
+            <div style={{ color: '#888', fontSize: 12, marginTop: 14, marginBottom: 8, textAlign: 'center' }}>
+              Semua episode ({embeds.length})
+            </div>
+            <div style={gridEp}>
+              {[...embeds].sort((a, b) => Number(a.ep) - Number(b.ep)).map((e) => (
                 <a key={e.ep} href={linkEp(e.ep)}
-                  style={Number(e.ep) === Number(ep) ? epOn : epBtn}>E{e.ep}</a>
+                  style={Number(e.ep) === Number(ep) ? epOnGrid : epGrid}>E{e.ep}</a>
               ))}
             </div>
-          </>
+          </section>
         )}
       </main>
     </div>
   )
 }
 
-// Navigasi prev/next episode via link penuh (reload halaman)
+// Navigasi prev/next episode via link penuh (reload halaman) — selalu di tengah
 function NavEp({ code, slug, embeds, ep }) {
   const nos = [...new Set(embeds.map((e) => Number(e.ep)))].sort((a, b) => a - b)
   const i = nos.indexOf(Number(ep))
@@ -102,15 +105,15 @@ function NavEp({ code, slug, embeds, ep }) {
   const next = i >= 0 && i < nos.length - 1 ? nos[i + 1] : null
   if (prev === null && next === null) return null
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 14 }}>
       {prev === null ? (
-        <span style={{ ...navBtn, opacity: 0.4 }}>E–</span>
+        <span style={navMati}><Ikon nama="chevKiri" size={14} /></span>
       ) : (
         <a href={`/p/${code}/${slug}/${prev}`} style={navBtn}><Ikon nama="chevKiri" size={14} /> E{prev}</a>
       )}
-      <span style={{ color: '#888', fontSize: 13 }}>E{ep}</span>
+      <span style={navTengah}>E{ep} / {nos.length}</span>
       {next === null ? (
-        <span style={{ ...navBtn, opacity: 0.4 }}>E–</span>
+        <span style={navMati}><Ikon nama="chevKanan" size={14} /></span>
       ) : (
         <a href={`/p/${code}/${slug}/${next}`} style={navBtn}>E{next} <Ikon nama="chevKanan" size={14} /></a>
       )}
@@ -124,4 +127,9 @@ const input = { width: '100%', padding: 12, fontSize: 16, background: '#0b0f1a',
 const btn = { width: '100%', padding: 12, background: '#00a4dc', color: '#fff', border: 0, borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', marginTop: 12 }
 const epBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', textDecoration: 'none', fontSize: 14 }
 const epOn = { ...epBtn, borderColor: '#00a4dc', color: '#00a4dc', fontWeight: 'bold' }
-const navBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', textDecoration: 'none', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 4 }
+const navBtn = { padding: '10px 18px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 10, cursor: 'pointer', textDecoration: 'none', fontSize: 15, display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 96, justifyContent: 'center' }
+const navMati = { ...navBtn, opacity: 0.35 }
+const navTengah = { color: '#fff', fontSize: 14, fontWeight: 'bold', minWidth: 72, textAlign: 'center' }
+const gridEp = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))', gap: 8 }
+const epGrid = { padding: '10px 0', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 10, cursor: 'pointer', textDecoration: 'none', fontSize: 14, textAlign: 'center' }
+const epOnGrid = { ...epGrid, borderColor: '#00a4dc', color: '#00a4dc', fontWeight: 'bold' }
