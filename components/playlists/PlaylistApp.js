@@ -140,7 +140,10 @@ export default function PlaylistApp({ code, has_pin }) {
           item={lihat.item}
           tunnel={tunnel}
           code={code}
-          onKembali={() => setLihat({ nama: 'home' })}
+          onKembali={() => {
+            setLihat({ nama: 'home' })
+            try { window.history.replaceState(null, '', `/p/${code}`) } catch (_) {}
+          }}
           onEdit={() => setLihat({ nama: 'form', type: lihat.item.type, item: lihat.item })}
           onHapus={async () => {
             if (!confirm('Hapus dari playlist?')) return
@@ -221,6 +224,9 @@ function Detail({ item, tunnel, code, onKembali, onEdit, onHapus, onPutar }) {
   const pilihEp = (e) => {
     setEp(e.ep)
     onPutar(e.ep)
+    try {
+      window.history.replaceState(null, '', `/p/${code}/${slug}/${e.ep}`)
+    } catch (_) {}
   }
   const urlEp = (e) => (e ? (e.url || e.embed || '') : '')
   const linkEp = (n) => (typeof window !== 'undefined' ? window.location.origin : '') + `/p/${code}/${slug}/${n}`
