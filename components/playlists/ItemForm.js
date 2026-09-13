@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { slugify } from '@/lib/playlist'
+import Ikon from '@/components/playlists/Ikon'
 
 const AKSEN = '#00a4dc'
 
@@ -152,7 +153,10 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
   return (
     <div style={overlay} onClick={(e) => { if (e.target === e.currentTarget) onTutup() }}>
       <div style={kotak}>
-        <h2 style={{ marginTop: 0 }}>{awal?.id ? 'Edit' : 'Tambah'} {tipe === 'series' ? 'Series' : 'Film'}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h2 style={{ margin: 0, flex: 1 }}>{awal?.id ? 'Edit' : 'Tambah'} {tipe === 'series' ? 'Series' : 'Film'}</h2>
+          <button onClick={onTutup} style={btnKecil} title="Tutup"><Ikon nama="tutup" size={16} /></button>
+        </div>
 
         <div style={baris}>
           <button onClick={() => setTipe('movie')} style={tipe === 'movie' ? tabOn : tab}>Film</button>
@@ -203,7 +207,7 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label style={{ ...lbl, flex: 1 }}>{tipe === 'series' ? `Link tonton per episode (${f.embeds.length})` : 'Link tonton (URL seeks / abyss / MP4)'}</label>
-          {tipe === 'series' && <button onClick={urutkan} style={{ ...btnKecil, marginTop: 12 }} title="Urutkan menurut nomor">⇅ Urutkan</button>}
+          {tipe === 'series' && <button onClick={urutkan} style={{ ...btnIkon, marginTop: 12 }} title="Urutkan menurut nomor"><Ikon nama="urut" size={14} /> Urutkan</button>}
         </div>
         {f.embeds.map((e, i) => (
           <div key={i} style={epCard}>
@@ -216,13 +220,13 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
               ) : (
                 <>
                   <b>E{e.ep}</b>
-                  <button onClick={() => { setEditEp(i); setTmpEp(e.ep) }} style={btnKecil} title="Edit nomor">✏️</button>
+                  <button onClick={() => { setEditEp(i); setTmpEp(e.ep) }} style={btnKecil} title="Edit nomor"><Ikon nama="edit" size={14} /></button>
                 </>
               )}
               <span style={{ flex: 1 }} />
-              {tipe === 'series' && <button title="Sisip episode di atas" onClick={() => sisip(i, -1)} style={btnKecil}>+↑</button>}
-              {tipe === 'series' && <button title="Sisip episode di bawah" onClick={() => sisip(i, 1)} style={btnKecil}>+↓</button>}
-              <button title="Hapus episode" onClick={() => hapusEp(i)} style={btnKecil}>✕</button>
+              {tipe === 'series' && <button title="Sisip episode di atas" onClick={() => sisip(i, -1)} style={btnKecil}><Ikon nama="panahAtas" size={14} /></button>}
+              {tipe === 'series' && <button title="Sisip episode di bawah" onClick={() => sisip(i, 1)} style={btnKecil}><Ikon nama="panahBawah" size={14} /></button>}
+              <button title="Hapus episode" onClick={() => hapusEp(i)} style={btnKecil}><Ikon nama="tutup" size={14} /></button>
             </div>
             <input value={e.url || e.embed || ''} onChange={(ev) => setEp(i, 'url', ev.target.value)} placeholder="https://..." style={{ ...input, marginTop: 6 }} />
           </div>
@@ -231,12 +235,12 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
           <button onClick={() => setF((s) => {
             const maks = s.embeds.reduce((m, e) => Math.max(m, e.ep || 0), 0)
             return { ...s, embeds: [...s.embeds, { ep: maks + 1, url: '' }] }
-          })} style={{ ...btnKecil, marginTop: 8 }}>+ Episode di akhir</button>
+          })} style={{ ...btnIkon, marginTop: 8 }}><Ikon nama="plus" size={14} /> Episode di akhir</button>
         )}
 
         {simpanInfo && <p style={{ color: '#f0ad4e', fontSize: 13 }}>{simpanInfo}</p>}
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <button onClick={simpan} style={btnUtama}>Simpan</button>
+          <button onClick={simpan} style={btnUtama}><Ikon nama="cek" size={15} /> Simpan</button>
           <button onClick={onTutup} style={btnKedua}>Batal</button>
         </div>
       </div>
@@ -248,9 +252,10 @@ const overlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIn
 const kotak = { background: '#141b2e', borderRadius: 12, padding: 20, maxWidth: 640, margin: '20px auto', color: '#eee' }
 const lbl = { display: 'block', fontSize: 12, color: '#888', marginTop: 12 }
 const input = { width: '100%', padding: 10, fontSize: 14, background: '#0b0f1a', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, boxSizing: 'border-box', marginTop: 4 }
-const btnUtama = { padding: '10px 18px', background: AKSEN, color: '#fff', border: 0, borderRadius: 8, fontWeight: 'bold', cursor: 'pointer' }
+const btnUtama = { padding: '10px 18px', background: AKSEN, color: '#fff', border: 0, borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }
 const btnKedua = { padding: '10px 18px', background: '#222b45', color: '#fff', border: 0, borderRadius: 8, cursor: 'pointer' }
 const btnKecil = { padding: '8px 10px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', fontSize: 13 }
+const btnIkon = { padding: '8px 12px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }
 const baris = { display: 'flex', gap: 8, marginBottom: 4 }
 const tab = { flex: 1, padding: 10, background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer' }
 const tabOn = { ...tab, borderColor: AKSEN, color: AKSEN, fontWeight: 'bold' }

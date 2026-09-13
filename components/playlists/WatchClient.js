@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { sha256hex, tunnelBase } from '@/lib/playlist'
 import VideoPlayer from '@/components/playlists/VideoPlayer'
+import Ikon from '@/components/playlists/Ikon'
 
 export default function WatchClient({ code, hasPinServer, item, epAwal }) {
   const router = useRouter()
@@ -53,7 +54,7 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
     return (
       <div style={tengah}>
         <form onSubmit={bukaKunci} style={{ ...kotak, width: '100%', maxWidth: 360 }}>
-          <h3 style={{ marginTop: 0 }}>🔒 {code}</h3>
+          <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Ikon nama="kunci" /> {code}</h3>
           <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN" autoFocus style={input} inputMode="numeric" />
           {pinErr && <p style={{ color: '#ff6b6b', fontSize: 13 }}>{pinErr}</p>}
           <button type="submit" style={btn}>Buka</button>
@@ -66,7 +67,7 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
     <div style={{ background: '#0b0f1a', minHeight: '100vh', color: '#eee' }}>
       <main style={{ maxWidth: 900, margin: 'auto', padding: '12px 16px 40px' }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
-          <a href={`/p/${code}`} style={{ color: '#00a4dc', textDecoration: 'none' }}>← {code}</a>
+          <a href={`/p/${code}`} style={{ color: '#00a4dc', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ikon nama="kembali" /> {code}</a>
           <span style={{ flex: 1 }} />
           <span style={{ color: '#888', fontSize: 13 }}>{item.title} {item.type === 'series' ? `· E${ep}` : ''}</span>
         </div>
@@ -107,9 +108,9 @@ function NavEp({ embeds, ep, onPindah }) {
   if (prev === null && next === null) return null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-      <button disabled={prev === null} onClick={() => onPindah(prev)} style={navBtn}>← E{prev ?? '–'}</button>
+      <button disabled={prev === null} onClick={() => onPindah(prev)} style={navBtn}><Ikon nama="chevKiri" size={14} /> E{prev ?? '–'}</button>
       <span style={{ color: '#888', fontSize: 13 }}>E{ep}</span>
-      <button disabled={next === null} onClick={() => onPindah(next)} style={navBtn}>E{next ?? '–'} →</button>
+      <button disabled={next === null} onClick={() => onPindah(next)} style={navBtn}>E{next ?? '–'} <Ikon nama="chevKanan" size={14} /></button>
     </div>
   )
 }

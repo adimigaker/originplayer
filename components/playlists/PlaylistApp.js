@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { sha256hex, tunnelBase, bacaProgress, simpanProgress, slugify } from '@/lib/playlist'
 import ItemForm from '@/components/playlists/ItemForm'
 import VideoPlayer from '@/components/playlists/VideoPlayer'
+import Ikon from '@/components/playlists/Ikon'
 
 const BG = '#0b0f1a'
 const CARD = '#141b2e'
@@ -97,7 +98,7 @@ export default function PlaylistApp({ code, has_pin }) {
     return (
       <div style={tengah}>
         <form onSubmit={bukaKunci} style={{ ...CARD_, width: '100%', maxWidth: 360 }}>
-          <h3 style={{ marginTop: 0 }}>🔒 {code}</h3>
+          <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Ikon nama="kunci" /> {code}</h3>
           <p style={{ color: '#888', fontSize: 13 }}>Playlist ini dikunci. Masukkan PIN.</p>
           <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN" autoFocus style={input} inputMode="numeric" />
           {pinErr && <p style={{ color: '#ff6b6b', fontSize: 13 }}>{pinErr}</p>}
@@ -114,12 +115,12 @@ export default function PlaylistApp({ code, has_pin }) {
   return (
     <div style={{ background: BG, minHeight: '100vh', color: '#eee' }}>
       <header style={header}>
-        <a href="/playlists" style={{ color: AKSEN, textDecoration: 'none' }}>←</a>
+        <a href="/playlists" style={{ color: AKSEN, textDecoration: 'none', display: 'inline-flex' }} title="Beranda"><Ikon nama="kembali" size={20} /></a>
         <b style={{ fontSize: 18 }}>{code}</b>
         <span style={{ flex: 1 }} />
-        <button onClick={aturPin} style={btnKecil}>🔒 PIN</button>
-        <button onClick={() => setLihat({ nama: 'form', type: 'movie' })} style={btnKecil}>+ Film</button>
-        <button onClick={() => setLihat({ nama: 'form', type: 'series' })} style={btnKecil}>+ Series</button>
+        <button onClick={aturPin} style={btnIkon}><Ikon nama="kunci" size={14} /> PIN</button>
+        <button onClick={() => setLihat({ nama: 'form', type: 'movie' })} style={btnIkon}><Ikon nama="plus" size={14} /> Film</button>
+        <button onClick={() => setLihat({ nama: 'form', type: 'series' })} style={btnIkon}><Ikon nama="plus" size={14} /> Series</button>
       </header>
 
       <span id="pinState" data-on={has_pin ? '1' : '0'} style={{ display: 'none' }} />
@@ -161,7 +162,7 @@ export default function PlaylistApp({ code, has_pin }) {
         <main style={{ padding: '4px 20px 40px', maxWidth: 1100, margin: 'auto' }}>
           {kunci ? (
             <div style={{ ...CARD_, textAlign: 'center', padding: 40, marginTop: 30 }}>
-              <div style={{ fontSize: 48 }}>🎬</div>
+              <div style={{ color: AKSEN }}><Ikon nama="film" size={48} /></div>
               <h2>Playlist masih kosong</h2>
               <p style={{ color: '#888' }}>Tambahkan film atau series pertama ke library-mu.</p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
@@ -171,8 +172,8 @@ export default function PlaylistApp({ code, has_pin }) {
             </div>
           ) : (
             <>
-              <Rak judul="🎬 Film" isi={film} onPilih={(item) => setLihat({ nama: 'detail', item })} prog={prog} />
-              <Rak judul="📺 Series" isi={series} onPilih={(item) => setLihat({ nama: 'detail', item })} prog={prog} />
+              <Rak ikon="film" judul="Film" isi={film} onPilih={(item) => setLihat({ nama: 'detail', item })} prog={prog} />
+              <Rak ikon="tv" judul="Series" isi={series} onPilih={(item) => setLihat({ nama: 'detail', item })} prog={prog} />
             </>
           )}
           <p style={{ marginTop: 30 }}>
@@ -184,11 +185,13 @@ export default function PlaylistApp({ code, has_pin }) {
   )
 }
 
-function Rak({ judul, isi, onPilih, prog }) {
+function Rak({ ikon, judul, isi, onPilih, prog }) {
   if (!isi.length) return null
   return (
     <section style={{ marginTop: 24 }}>
-      <h2 style={{ fontSize: 18 }}>{judul} <span style={{ color: '#666', fontSize: 13 }}>{isi.length}</span></h2>
+      <h2 style={{ fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Ikon nama={ikon} size={18} /> {judul} <span style={{ color: '#666', fontSize: 13 }}>{isi.length}</span>
+      </h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12 }}>
         {isi.map((it) => {
           const eps = (it.embeds || []).map((e) => e.ep)
@@ -229,7 +232,7 @@ function Detail({ item, tunnel, code, onKembali, onEdit, onHapus, onPutar }) {
         <div style={{ height: 220, background: `url(${item.backdrop}) center/cover`, WebkitMaskImage: 'linear-gradient(#000, transparent)', maskImage: 'linear-gradient(#000, transparent)' }} />
       )}
       <main style={{ padding: '0 20px 40px', maxWidth: 900, margin: 'auto', marginTop: item.backdrop ? -60 : 12 }}>
-        <button onClick={onKembali} style={btnKecil}>← Kembali</button>
+        <button onClick={onKembali} style={btnIkon}><Ikon nama="kembali" size={14} /> Kembali</button>
         <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
           {item.poster && <img src={item.poster} alt={item.title} style={{ width: 150, borderRadius: 8 }} />}
           <div style={{ flex: 1, minWidth: 220 }}>
@@ -241,8 +244,8 @@ function Detail({ item, tunnel, code, onKembali, onEdit, onHapus, onPutar }) {
             <p style={{ color: '#bbb', fontSize: 14 }}>{item.synopsis}</p>
             {item.cast && <p style={{ color: '#888', fontSize: 13 }}>Pemain: {item.cast}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={onEdit} style={btnKecil}>✏️ Edit</button>
-              <button onClick={onHapus} style={{ ...btnKecil, color: '#ff6b6b' }}>🗑 Hapus</button>
+              <button onClick={onEdit} style={btnIkon}><Ikon nama="edit" size={14} /> Edit</button>
+              <button onClick={onHapus} style={{ ...btnIkon, color: '#ff6b6b' }}><Ikon nama="hapus" size={14} /> Hapus</button>
             </div>
           </div>
         </div>
@@ -252,7 +255,7 @@ function Detail({ item, tunnel, code, onKembali, onEdit, onHapus, onPutar }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {embeds.map((e) => (
             <button key={e.ep} onClick={() => pilihEp(e)} style={{ ...btnKecil, ...(Number(e.ep) === Number(ep) ? { borderColor: AKSEN, color: AKSEN } : {}) }}>
-              {item.type === 'series' ? 'E' + e.ep : '▶ Putar'}
+              {item.type === 'series' ? 'E' + e.ep : <><Ikon nama="putar" size={13} /> Putar</>}
             </button>
           ))}
         </div>
@@ -263,9 +266,9 @@ function Detail({ item, tunnel, code, onKembali, onEdit, onHapus, onPutar }) {
             {item.type === 'series' && <NavEp embeds={embeds} ep={aktif.ep} onPindah={(n) => pilihEp({ ep: n })} />}
             <button
               onClick={() => { navigator.clipboard?.writeText(linkEp(aktif.ep)); setSalin(true); setTimeout(() => setSalin(false), 2000) }}
-              style={{ ...btnKecil, marginTop: 8 }}
+              style={{ ...btnIkon, marginTop: 8 }}
             >
-              {salin ? 'Link disalin!' : `🔗 Salin link E${aktif.ep}`}
+              {salin ? <><Ikon nama="cek" size={14} /> Link disalin!</> : <><Ikon nama="tautan" size={14} /> Salin link E{aktif.ep}</>}
             </button>
           </div>
         ) : (
@@ -281,7 +284,7 @@ function Bagikan({ code }) {
   const link = typeof window !== 'undefined' ? window.location.origin + '/p/' + code : '/p/' + code
   return (
     <span style={{ color: '#888', fontSize: 13 }}>
-      🔗 Link share: <code style={{ color: '#bbb' }}>{link}</code>{' '}
+      <Ikon nama="tautan" size={14} /> Link share: <code style={{ color: '#bbb' }}>{link}</code>{' '}
       <button
         onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
         style={btnKecil}
@@ -298,6 +301,7 @@ const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 
 const btnUtama = { padding: '12px 20px', background: AKSEN, color: '#fff', border: 0, borderRadius: 8, fontWeight: 'bold', cursor: 'pointer' }
 const btnKedua = { padding: '12px 20px', background: '#222b45', color: '#fff', border: 0, borderRadius: 8, cursor: 'pointer' }
 const btnKecil = { padding: '8px 12px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', fontSize: 13 }
+const btnIkon = { padding: '8px 12px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }
 const input = { width: '100%', padding: 12, fontSize: 16, background: '#0b0f1a', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, boxSizing: 'border-box', marginTop: 8 }
 const badge = { position: 'absolute', top: 6, left: 6, background: AKSEN, color: '#fff', fontSize: 10, padding: '2px 8px', borderRadius: 10 }
 
@@ -310,9 +314,9 @@ function NavEp({ embeds, ep, onPindah }) {
   if (prev === null && next === null) return null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-      <button disabled={prev === null} onClick={() => onPindah(prev)} style={navBtn}>← E{prev ?? '–'}</button>
+      <button disabled={prev === null} onClick={() => onPindah(prev)} style={navBtn}><Ikon nama="chevKiri" size={14} /> E{prev ?? '–'}</button>
       <span style={{ color: '#888', fontSize: 13 }}>E{ep}</span>
-      <button disabled={next === null} onClick={() => onPindah(next)} style={navBtn}>E{next ?? '–'} →</button>
+      <button disabled={next === null} onClick={() => onPindah(next)} style={navBtn}>E{next ?? '–'} <Ikon nama="chevKanan" size={14} /></button>
     </div>
   )
 }

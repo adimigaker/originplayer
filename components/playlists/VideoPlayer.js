@@ -1,9 +1,10 @@
 'use client'
 
-// VideoPlayer native: <video> langsung di halaman (tanpa iframe).
-// Mendukung seeks HLS (token + hls.js), abyss MP4 (rakitan /abyssplay),
-// dan URL MP4/HLS langsung. Backend = tunnel cleanplayer (proxy + /abyss).
+// VideoPlayer native gaya Jellyfin: overlay dalam frame, auto-hide,
+// tap tengah putar/jeda, double-tap kiri/kanan ∓10 detik.
+// Sumber: seeks HLS (token + hls.js), abyss MP4 (/abyssplay), URL langsung.
 import { useState, useEffect, useRef } from 'react'
+import Ikon from '@/components/playlists/Ikon'
 
 const AKSEN = '#00a4dc'
 const SKEY = 'kiemtienmua911ca'
@@ -33,21 +34,112 @@ const fmt = (detik) => {
 
 export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar }) {
   const vRef = useRef(null)
+  const stageRef = useRef(null)
   const hlsRef = useRef(null)
+  const hideTimer = useRef(null)
+  const lastTap = useRef({ side: '', t: 0 })
   const [status, setStatus] = useState('Siap.')
   const [jalan, setJalan] = useState(false)
+  const [jeda, setJeda] = useState(true)
   const [waktu, setWaktu] = useState({ cur: 0, dur: 0 })
   const [kualitas, setKualitas] = useState([])
   const [qAktif, setQAktif] = useState(0)
   const [mode, setMode] = useState('')
+  const [cfgBuka, setCfgBuka] = useState(false)
+  const [ccNyala, setCcNyala] = useState(true)
+  const [uiSembunyi, setUiSembunyi] = useState(false)
+  const [flash, setFlash] = useState(null)
+  const [kecepatan, setKecepatan] = useState(1)
   const pertama = useRef(false)
   const dataRef = useRef({ levels: [], proxy: '', meta: null, abyss: [] })
 
   const st = (m) => setStatus(m)
   const px = () => (tunnel ? tunnel.replace(/\/$/, '') + '/proxy?url=' : '/proxy?url=')
+  const vid = () => vRef.current
 
   const hancurkanHls = () => {
     if (hlsRef.current) { try { hlsRef.current.destroy() } catch (e) {} hlsRef.current = null }
+  }
+
+  // ── overlay auto-hide ──
+  const tampilUI = () => {
+    setUiSembunyi(false)
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    hideTimer.current = setTimeout(() => {
+      const v = vid()
+      if (v && !v.paused) setUiSembunyi(true)
+    }, 3000)
+  }
+
+  const putarJeda = () => {
+    const v = vid()
+    if (v) { v.paused ? v.play().catch(() => {}) : v.pause() }
+  }
+
+  const kilas = (sisi) => {
+    setFlash(sisi)
+    setTimeout(() => setFlash(null), 700)
+  }
+
+  // tap tengah = putar/jeda, double-tap kiri/kanan = ∓10 dtk
+  const ketuk = (clientX) => {
+    const stg = stageRef.current
+    if (!stg) return
+    const r = stg.getBoundingClientRect()
+    const x = (clientX - r.left) / r.width
+    const sisi = x < 0.32 ? 'L' : x > 0.68 ? 'R' : 'C'
+    const now = Date.now()
+    const lt = lastTap.current
+    if (lt.side === sisi && now - lt.t < 320) {
+      lastTap.current = { side: '', t: 0 }
+      const v = vid()
+      if (sisi === 'C') putarJeda()
+      else if (v) {
+        v.currentTime = Math.max(0, v.currentTime + (sisi === 'L' ? -10 : 10))
+        kilas(sisi)
+      }
+      tampilUI()
+      return
+    }
+    lastTap.current = { side: sisi, t: now }
+    setTimeout(() => {
+      const l2 = lastTap.current
+      if (l2.side === sisi && Date.now() - l2.t >= 300) {
+        lastTap.current = { side: '', t: 0 }
+        setUiSembunyi((s) => {
+          const v = vid()
+          if (!s) return !(v && v.paused) ? true : s
+          return false
+        })
+      }
+    }, 330)
+  }
+
+  const fs = async () => {
+    try {
+      if (document.fullscreenElement) { await document.exitFullscreen(); return }
+      const el = stageRef.current || vid()
+      if (el?.requestFullscreen) await el.requestFullscreen()
+      else if (vid()?.webkitEnterFullscreen) vid().webkitEnterFullscreen()
+      else st('Fullscreen tak didukung browser ini.')
+    } catch (e) {
+      st('Fullscreen ditolak: ' + e.message)
+    }
+  }
+
+  const unduh = () => {
+    const u = vid()?.src || vid()?.currentSrc
+    if (u) window.open(u, '_blank')
+  }
+
+  const toggleCC = () => {
+    const v = vid()
+    if (!v) return
+    let nyala = false
+    for (const t of v.textTracks) if (t.mode === 'showing') nyala = true
+    const next = nyala ? 'hidden' : 'showing'
+    for (const t of v.textTracks) t.mode = next
+    setCcNyala(!nyala)
   }
 
   // ── seeks: ambil + decrypt metadata ──
@@ -91,7 +183,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
   }
 
   const putarVarianSeeks = async (i, resume) => {
-    const v = vRef.current
+    const v = vid()
     const lv = dataRef.current.levels[i]
     if (!lv) return
     st(`Memuat ${lv.h}p...`)
@@ -123,7 +215,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
   }
 
   const mulaiSeeks = async (id) => {
-    const v = vRef.current
+    const v = vid()
     st('Minta token seeks...')
     const meta = await metaSeeks(id)
     const master = meta.cfNative || meta.source
@@ -141,7 +233,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
   }
 
   const muatSubtitleSeeks = async (meta) => {
-    const v = vRef.current
+    const v = vid()
     try {
       [...v.querySelectorAll('track')].forEach((t) => t.remove())
       const subs = meta.subtitle || {}
@@ -154,15 +246,15 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
       const blobUrl = URL.createObjectURL(new Blob([txt], { type: 'text/vtt' }))
       const t = document.createElement('track')
       t.kind = 'subtitles'; t.label = name; t.srclang = 'id'; t.default = true
-      const pasang = () => { v.removeEventListener('playing', pasang); v.appendChild(t); t.src = blobUrl }
+      const pasang = () => { v.removeEventListener('playing', pasang); v.appendChild(t); t.src = blobUrl; setCcNyala(true) }
       v.addEventListener('playing', pasang)
     } catch (e) {}
   }
 
   // ── abyss: via /abyss + /abyssplay tunnel ──
   const mulaiAbyss = async (raw) => {
-    const v = vRef.current
-    let m = String(raw).match(/abyssplayer\.com\/([A-Za-z0-9_-]{7,17})/)
+    const v = vid()
+    const m = String(raw).match(/abyssplayer\.com\/([A-Za-z0-9_-]{7,17})/)
     const slug = m ? m[1] : (String(raw).match(/[A-Za-z0-9_-]{7,17}/g) || []).pop() || ''
     if (!slug) { st('Slug abyss tidak ketemu.'); return }
     st('Minta link abyss...')
@@ -189,13 +281,14 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
     const top = daftar.find((s) => s.ok)
     if (!top) { st('Abyss gagal: semua kualitas mati di server.'); return }
     setQAktif(daftar.indexOf(top))
+    v.onerror = () => { st('Video error — coba kualitas lain.') }
     v.src = top.purl
     st(`OK — Abyss ${top.label}`)
     v.play().catch(() => {})
   }
 
   const mulaiLangsung = async (raw) => {
-    const v = vRef.current
+    const v = vid()
     hancurkanHls()
     setKualitas([])
     setMode('langsung')
@@ -219,7 +312,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
   }
 
   useEffect(() => {
-    const v = vRef.current
+    const v = vid()
     if (!v || !embedUrl) return
     hancurkanHls()
     dataRef.current = { levels: [], proxy: '', meta: null, abyss: [] }
@@ -239,31 +332,36 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
     }
     jalan()
     const onPlay = () => {
-      setJalan(true)
+      setJalan(true); setJeda(false); tampilUI()
       if (!pertama.current && onPertamaPutar) { pertama.current = true; onPertamaPutar() }
     }
-    const onPause = () => setJalan(false)
+    const onPause = () => { setJalan(false); setJeda(true); setUiSembunyi(false); if (hideTimer.current) clearTimeout(hideTimer.current) }
     const onTime = () => setWaktu({ cur: v.currentTime || 0, dur: v.duration || 0 })
     const onErr = () => st('Video error — coba kualitas lain.')
+    const onSeek = () => tampilUI()
     v.addEventListener('play', onPlay)
     v.addEventListener('pause', onPause)
     v.addEventListener('timeupdate', onTime)
     v.addEventListener('loadedmetadata', onTime)
     v.addEventListener('error', onErr)
+    v.addEventListener('seeking', onSeek)
     return () => {
       v.removeEventListener('play', onPlay)
       v.removeEventListener('pause', onPause)
       v.removeEventListener('timeupdate', onTime)
       v.removeEventListener('loadedmetadata', onTime)
       v.removeEventListener('error', onErr)
+      v.removeEventListener('seeking', onSeek)
       hancurkanHls()
+      if (hideTimer.current) clearTimeout(hideTimer.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [embedUrl])
 
   const gantiKualitas = async (i) => {
-    const v = vRef.current
+    const v = vid()
     const d = dataRef.current
+    setCfgBuka(false)
     if (mode === 'seeks' && d.levels.length) {
       await putarVarianSeeks(i, v.currentTime || 0)
     } else if (mode === 'abyss' && d.abyss.length) {
@@ -277,51 +375,74 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
     }
   }
 
-  const vid = () => vRef.current
-  const toggle = () => { const v = vid(); if (v) { v.paused ? v.play().catch(() => {}) : v.pause() } }
-  const fs = async () => {
-    try {
-      if (document.fullscreenElement) { await document.exitFullscreen(); return }
-      const v = vid()
-      const el = v?.parentElement || v
-      if (el?.requestFullscreen) await el.requestFullscreen()
-      else if (v?.webkitEnterFullscreen) v.webkitEnterFullscreen()
-      else st('Fullscreen tak didukung browser ini.')
-    } catch (e) {
-      st('Fullscreen ditolak: ' + e.message)
-    }
-  }
-  const unduh = () => {
-    const u = vid()?.src || vid()?.currentSrc
-    if (u) window.open(u, '_blank')
+  const gantiKecepatan = (spd) => {
+    const v = vid()
+    if (v) v.playbackRate = parseFloat(spd)
+    setCfgBuka(false)
   }
 
   return (
     <div>
-      <div style={{ position: 'relative', background: '#000', borderRadius: 12, overflow: 'hidden' }}>
-        <video ref={vRef} playsInline controls={false} onClick={toggle}
-          style={{ width: '100%', aspectRatio: '16/9', display: 'block', background: '#000' }} />
-        <div style={bar}>
-          <button onClick={toggle} style={tbtn}>{jalan ? '⏸' : '▶'}</button>
-          <span style={waktu_}>{fmt(waktu.cur)} / {fmt(waktu.dur)}</span>
-          <input type="range" min={0} max={waktu.dur || 0} step={1} value={waktu.cur}
-            onChange={(e) => { const v = vid(); if (v && v.duration) v.currentTime = parseFloat(e.target.value) }}
-            style={{ flex: 1, minWidth: 40, accentColor: AKSEN }} />
-          <button onClick={fs} style={tbtn} title="Fullscreen">⛶</button>
+      <div
+        ref={stageRef}
+        onClick={(e) => { if (e.target.closest('button,select,input')) return; ketuk(e.clientX) }}
+        style={{ position: 'relative', background: '#000', borderRadius: 12, overflow: 'hidden', cursor: uiSembunyi ? 'none' : 'default' }}
+      >
+        <video ref={vRef} playsInline style={{ width: '100%', aspectRatio: '16/9', display: 'block', background: '#000' }} />
+
+        {/* judul atas */}
+        <div style={{ ...ovBar, top: 0, background: 'linear-gradient(rgba(0,0,0,.65),transparent)', opacity: uiSembunyi ? 0 : 1 }}>
+          <span style={qBadge}>{kualitas[qAktif]?.label?.split(' ')[0] || '–'}</span>
+          <span style={{ flex: 1 }} />
+          <span style={{ fontSize: 13, opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40%' }}>{title}</span>
+          <button onClick={toggleCC} style={{ ...tbtn, ...(ccNyala ? { color: AKSEN } : {}) }} title="Subtitle"><Ikon nama="cc" size={22} /></button>
+          <button onClick={() => { setCfgBuka(!cfgBuka); tampilUI() }} style={tbtn} title="Setelan"><Ikon nama="setelan" size={22} /></button>
         </div>
-        <div style={bar2}>
-          {kualitas.length > 1 && (
-            <select value={qAktif} onChange={(e) => gantiKualitas(parseInt(e.target.value))} style={sel}>
-              {kualitas.map((k) => <option key={k.i} value={k.i}>{k.label}</option>)}
+
+        {/* tombol putar besar */}
+        {jeda && (
+          <div onClick={(e) => { e.stopPropagation(); putarJeda() }}
+            style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,.25)', zIndex: 5 }}>
+            <span style={bigBtn}><Ikon nama={jalan ? 'jeda' : 'putar'} size={40} /></span>
+          </div>
+        )}
+
+        {/* kilatan ∓10 dtk */}
+        {flash === 'L' && <span style={{ ...flashSt, left: 14 }}>−10 dtk</span>}
+        {flash === 'R' && <span style={{ ...flashSt, right: 14 }}>+10 dtk</span>}
+
+        {/* popup setelan */}
+        {cfgBuka && (
+          <div style={cfg} onClick={(e) => e.stopPropagation()}>
+            <label style={cfgLbl}>Kualitas</label>
+            {kualitas.length > 1 ? (
+              <select value={qAktif} onChange={(e) => gantiKualitas(parseInt(e.target.value))} style={cfgSel}>
+                {kualitas.map((k) => <option key={k.i} value={k.i}>{k.label}</option>)}
+              </select>
+            ) : (
+              <div style={{ fontSize: 13, color: '#888' }}>Otomatis</div>
+            )}
+            <label style={cfgLbl}>Kecepatan</label>
+            <select value={String(kecepatan)} onChange={(e) => { setKecepatan(parseFloat(e.target.value)); gantiKecepatan(e.target.value) }} style={cfgSel}>
+              <option value="0.5">0.5x</option>
+              <option value="1">1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
             </select>
-          )}
-          <select onChange={(e) => { const v = vid(); if (v) v.playbackRate = parseFloat(e.target.value) }} defaultValue="1" style={sel}>
-            <option value="0.5">0.5x</option>
-            <option value="1">1x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2x</option>
-          </select>
-          <button onClick={unduh} style={tbtn} title="Download / buka tab baru">⤓</button>
+          </div>
+        )}
+
+        {/* kontrol bawah */}
+        <div style={{ ...ovBar, bottom: 0, flexDirection: 'column', alignItems: 'stretch', gap: 4, background: 'linear-gradient(transparent,rgba(0,0,0,.75))', paddingBottom: 10, opacity: uiSembunyi ? 0 : 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={waktu_}>{fmt(waktu.cur)} / {fmt(waktu.dur)}</span>
+            <span style={{ flex: 1 }} />
+            <button onClick={unduh} style={tbtn} title="Download"><Ikon nama="unduh" size={22} /></button>
+            <button onClick={fs} style={tbtn} title="Fullscreen"><Ikon nama="layar" size={22} /></button>
+          </div>
+          <input type="range" min={0} max={1000} value={waktu.dur ? Math.round((waktu.cur / waktu.dur) * 1000) : 0}
+            onChange={(e) => { const v = vid(); if (v && v.duration) v.currentTime = (e.target.value / 1000) * v.duration }}
+            style={{ width: '100%', accentColor: AKSEN, margin: 0 }} />
         </div>
       </div>
       <p style={{ color: AKSEN, fontSize: 13, minHeight: 18 }}>{status}</p>
@@ -329,8 +450,12 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
   )
 }
 
-const bar = { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(10,10,18,.95)' }
-const bar2 = { display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px 10px', background: 'rgba(10,10,18,.95)' }
-const tbtn = { background: 'transparent', border: 0, color: '#fff', fontSize: 18, cursor: 'pointer', padding: '4px 8px' }
-const waktu_ = { fontSize: 12, color: '#ddd', whiteSpace: 'nowrap' }
-const sel = { background: '#1a1a24', color: '#eee', border: '1px solid #444', borderRadius: 6, padding: 6, fontSize: 12 }
+const ovBar = { position: 'absolute', left: 0, right: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', zIndex: 4, transition: 'opacity .3s', pointerEvents: 'auto' }
+const tbtn = { background: 'transparent', border: 0, color: '#fff', cursor: 'pointer', borderRadius: '50%', padding: 6, lineHeight: 1 }
+const qBadge = { fontSize: 14, fontWeight: 'bold', color: '#fff' }
+const waktu_ = { fontSize: 12, color: '#eee', whiteSpace: 'nowrap' }
+const bigBtn = { width: 76, height: 76, borderRadius: '50%', background: 'rgba(20,20,20,.55)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+const flashSt = { position: 'absolute', top: '38%', fontSize: 15, fontWeight: 'bold', color: '#fff', background: 'rgba(0,0,0,.55)', padding: '8px 14px', borderRadius: 20, zIndex: 5 }
+const cfg = { position: 'absolute', right: 10, bottom: 76, background: '#1a1a24', border: '1px solid #444', borderRadius: 8, padding: 10, zIndex: 6, minWidth: 200 }
+const cfgLbl = { display: 'block', fontSize: 12, color: '#aaa', marginTop: 6 }
+const cfgSel = { width: '100%', background: '#1a1a24', color: '#eee', border: '1px solid #444', borderRadius: 6, padding: 8, fontSize: 13, margin: '2px 0 6px' }
