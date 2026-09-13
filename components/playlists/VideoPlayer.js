@@ -277,12 +277,23 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
     }
   }
 
-  const v = vRef.current
-  const toggle = () => { if (v) { v.paused ? v.play().catch(() => {}) : v.pause() } }
-  const fs = () => {
-    const stg = v?.parentElement
-    if (document.fullscreenElement) document.exitFullscreen()
-    else if (stg?.requestFullscreen) stg.requestFullscreen()
+  const vid = () => vRef.current
+  const toggle = () => { const v = vid(); if (v) { v.paused ? v.play().catch(() => {}) : v.pause() } }
+  const fs = async () => {
+    try {
+      if (document.fullscreenElement) { await document.exitFullscreen(); return }
+      const v = vid()
+      const el = v?.parentElement || v
+      if (el?.requestFullscreen) await el.requestFullscreen()
+      else if (v?.webkitEnterFullscreen) v.webkitEnterFullscreen()
+      else st('Fullscreen tak didukung browser ini.')
+    } catch (e) {
+      st('Fullscreen ditolak: ' + e.message)
+    }
+  }
+  const unduh = () => {
+    const u = vid()?.src || vid()?.currentSrc
+    if (u) window.open(u, '_blank')
   }
 
   return (
@@ -294,20 +305,23 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
           <button onClick={toggle} style={tbtn}>{jalan ? '⏸' : '▶'}</button>
           <span style={waktu_}>{fmt(waktu.cur)} / {fmt(waktu.dur)}</span>
           <input type="range" min={0} max={waktu.dur || 0} step={1} value={waktu.cur}
-            onChange={(e) => { if (v && v.duration) v.currentTime = parseFloat(e.target.value) }}
-            style={{ flex: 1, accentColor: AKSEN }} />
+            onChange={(e) => { const v = vid(); if (v && v.duration) v.currentTime = parseFloat(e.target.value) }}
+            style={{ flex: 1, minWidth: 40, accentColor: AKSEN }} />
+          <button onClick={fs} style={tbtn} title="Fullscreen">⛶</button>
+        </div>
+        <div style={bar2}>
           {kualitas.length > 1 && (
             <select value={qAktif} onChange={(e) => gantiKualitas(parseInt(e.target.value))} style={sel}>
               {kualitas.map((k) => <option key={k.i} value={k.i}>{k.label}</option>)}
             </select>
           )}
-          <select onChange={(e) => { if (v) v.playbackRate = parseFloat(e.target.value) }} defaultValue="1" style={sel}>
+          <select onChange={(e) => { const v = vid(); if (v) v.playbackRate = parseFloat(e.target.value) }} defaultValue="1" style={sel}>
             <option value="0.5">0.5x</option>
             <option value="1">1x</option>
             <option value="1.5">1.5x</option>
             <option value="2">2x</option>
           </select>
-          <button onClick={fs} style={tbtn} title="Fullscreen">⛶</button>
+          <button onClick={unduh} style={tbtn} title="Download / buka tab baru">⤓</button>
         </div>
       </div>
       <p style={{ color: AKSEN, fontSize: 13, minHeight: 18 }}>{status}</p>
@@ -316,6 +330,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
 }
 
 const bar = { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(10,10,18,.95)' }
+const bar2 = { display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px 10px', background: 'rgba(10,10,18,.95)' }
 const tbtn = { background: 'transparent', border: 0, color: '#fff', fontSize: 18, cursor: 'pointer', padding: '4px 8px' }
 const waktu_ = { fontSize: 12, color: '#ddd', whiteSpace: 'nowrap' }
 const sel = { background: '#1a1a24', color: '#eee', border: '1px solid #444', borderRadius: 6, padding: 6, fontSize: 12 }
