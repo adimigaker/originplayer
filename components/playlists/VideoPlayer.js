@@ -3,6 +3,7 @@
 // VideoPlayer native gaya Jellyfin: overlay dalam frame, auto-hide,
 // tap tengah putar/jeda, double-tap kiri/kanan ∓10 detik.
 // Sumber: seeks HLS (token + hls.js), abyss MP4 (/abyssplay), URL langsung.
+// autoPutar=false default: video tidak jalan sendiri (aturan browser + spek).
 import { useState, useEffect, useRef } from 'react'
 import Ikon from '@/components/playlists/Ikon'
 
@@ -32,7 +33,7 @@ const fmt = (detik) => {
   return Math.floor(detik / 60) + ':' + String(detik % 60).padStart(2, '0')
 }
 
-export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar }) {
+export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, autoPutar = false }) {
   const vRef = useRef(null)
   const stageRef = useRef(null)
   const hlsRef = useRef(null)
@@ -108,7 +109,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
         lastTap.current = { side: '', t: 0 }
         setUiSembunyi((s) => {
           const v = vid()
-          if (!s) return !(v && v.paused) ? true : s
+          if (!s) return v && !v.paused ? true : s
           return false
         })
       }
@@ -147,6 +148,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
     const w = window.screen.width || 800
     const h = window.screen.height || 600
     const r = await fetch(`https://ps21.seeks.cloud/api/v1/video?id=${encodeURIComponent(id)}&w=${w}&h=${h}&r=`)
+    if (!r.ok) throw new Error('seeks menolak (' + r.status + ')')
     const hex = (await r.text()).trim()
     const data = new Uint8Array(hex.match(/[\da-f]{2}/gi).map((x) => parseInt(x, 16)))
     const te = new TextEncoder()
@@ -182,12 +184,14 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
     }).join('\n')
   }
 
-  const putarVarianSeeks = async (i, resume) => {
+  const putarVarianSeeks = async (i, resume, paksa = false) => {
     const v = vid()
     const lv = dataRef.current.levels[i]
     if (!lv) return
     st(`Memuat ${lv.h}p...`)
-    const txt = await (await fetch(lv.url)).text()
+    const rm = await fetch(lv.url)
+    if (!rm.ok) throw new Error('varian mati (' + rm.status + ')')
+    const txt = await rm.text()
     const blobUrl = URL.createObjectURL(new Blob(
       [tulisUlangSegmen(txt, lv.url)], { type: 'application/vnd.apple.mpegurl' }))
     hancurkanHls()
@@ -201,14 +205,14 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         st('OK — ' + lv.h + 'P')
         if (resume > 1) { try { v.currentTime = resume } catch (e) {} }
-        v.play().catch(() => {})
+        if (paksa || resume > 1 || autoPutar) v.play().catch(() => {})
       })
       hls.on(Hls.Events.ERROR, (e, data) => {
         if (data.fatal) st('Error: ' + data.details + ' — cek tunnel.')
       })
     } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
       v.src = blobUrl
-      v.play().catch(() => {})
+      if (autoPutar) v.play().catch(() => {})
     } else {
       st('Browser tidak mendukung HLS.')
     }
@@ -222,7 +226,9 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
     if (!master) { st('Tidak ada stream untuk ID ini.'); return }
     dataRef.current = { levels: [], proxy: px(), meta, abyss: [] }
     st('Token OK — memuat kualitas...')
-    const masterTxt = await (await fetch(master)).text()
+    const rm = await fetch(master)
+    if (!rm.ok) throw new Error('playlist mati (' + rm.status + ')')
+    const masterTxt = await rm.text()
     const levels = pecahVarian(masterTxt, master)
     if (!levels.length) { st('Tidak ada varian kualitas.'); return }
     dataRef.current.levels = levels
@@ -241,7 +247,9 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
       if (!names.length) return
       const name = names[0]
       const subUrl = 'https://ps21.seeks.cloud' + String(subs[name]).split('#')[0]
-      const txt = await (await fetch(px() + encodeURIComponent(subUrl))).text()
+      const rs = await fetch(px() + encodeURIComponent(subUrl))
+      if (!rs.ok) return
+      const txt = await rs.text()
       if (!txt.trim().startsWith('WEBVTT')) return
       const blobUrl = URL.createObjectURL(new Blob([txt], { type: 'text/vtt' }))
       const t = document.createElement('track')
@@ -260,6 +268,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
     st('Minta link abyss...')
     const base = tunnel ? tunnel.replace(/\/$/, '') : ''
     const r = await fetch(`${base}/abyss?slug=${encodeURIComponent(slug)}`)
+    if (!r.ok) throw new Error('backend abyss mati (' + r.status + ') — cek tunnel.')
     const data = await r.json()
     if (!data.sources?.length) { st('Abyss gagal: ' + (data.error || 'tanpa sources')); return }
     const daftar = data.sources.map((s, qi) => ({
@@ -284,7 +293,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
     v.onerror = () => { st('Video error — coba kualitas lain.') }
     v.src = top.purl
     st(`OK — Abyss ${top.label}`)
-    v.play().catch(() => {})
+    if (autoPutar) v.play().catch(() => {})
   }
 
   const mulaiLangsung = async (raw) => {
@@ -299,14 +308,17 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
         hlsRef.current = hls
         hls.loadSource(raw)
         hls.attachMedia(v)
-        hls.on(Hls.Events.MANIFEST_PARSED, () => { v.play().catch(() => {}); st('OK — HLS langsung.') })
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          if (autoPutar) v.play().catch(() => {})
+          st('OK — HLS langsung.')
+        })
       } else {
         v.src = raw
-        v.play().catch(() => {})
+        if (autoPutar) v.play().catch(() => {})
       }
     } else {
       v.src = raw
-      v.play().catch(() => {})
+      if (autoPutar) v.play().catch(() => {})
       st('OK — MP4 langsung.')
     }
   }
@@ -314,10 +326,21 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
   useEffect(() => {
     const v = vid()
     if (!v || !embedUrl) return
-    hancurkanHls()
-    dataRef.current = { levels: [], proxy: '', meta: null, abyss: [] }
-    setKualitas([])
-    pertama.current = false
+    let hidup = true
+    ;(async () => {
+      await Promise.resolve()
+      if (!hidup) return
+      // Backend wajib buat seeks/abyss — jangan mulai sebelum tunnel siap,
+      // kalau tidak fetch relatif kena 404 HTML (bacanya JSON → error DOCTYPE).
+      const perluTunnel = /seeks\.cloud|abyssplayer\.com|abyss\.to/i.test(embedUrl)
+      if (perluTunnel && !tunnel) { st('Menunggu tunnel...'); return }
+      hancurkanHls()
+      dataRef.current = { levels: [], proxy: '', meta: null, abyss: [] }
+      setKualitas([])
+      pertama.current = false
+      await jalan()
+    })()
+    let gagal = false
     const jalan = async () => {
       try {
         if (/abyssplayer\.com|abyss\.to/i.test(embedUrl)) await mulaiAbyss(embedUrl)
@@ -327,10 +350,11 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
           await mulaiSeeks(id)
         } else await mulaiLangsung(embedUrl)
       } catch (e) {
+        gagal = true
         st('Gagal: ' + e.message)
       }
+      if (!gagal && !autoPutar) st('Siap — ketuk tombol putar untuk mulai.')
     }
-    jalan()
     const onPlay = () => {
       setJalan(true); setJeda(false); tampilUI()
       if (!pertama.current && onPertamaPutar) { pertama.current = true; onPertamaPutar() }
@@ -346,6 +370,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
     v.addEventListener('error', onErr)
     v.addEventListener('seeking', onSeek)
     return () => {
+      hidup = false
       v.removeEventListener('play', onPlay)
       v.removeEventListener('pause', onPause)
       v.removeEventListener('timeupdate', onTime)
@@ -356,14 +381,14 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar })
       if (hideTimer.current) clearTimeout(hideTimer.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [embedUrl])
+  }, [embedUrl, tunnel])
 
   const gantiKualitas = async (i) => {
     const v = vid()
     const d = dataRef.current
     setCfgBuka(false)
     if (mode === 'seeks' && d.levels.length) {
-      await putarVarianSeeks(i, v.currentTime || 0)
+      await putarVarianSeeks(i, v.currentTime || 0, true)
     } else if (mode === 'abyss' && d.abyss.length) {
       const s = d.abyss[i]
       if (!s?.ok) { st('Kualitas itu mati di server.'); return }

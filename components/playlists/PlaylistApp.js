@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { sha256hex, tunnelBase, bacaProgress, simpanProgress, slugify } from '@/lib/playlist'
+import { sha256hex, bacaProgress, slugify } from '@/lib/playlist'
 import ItemForm from '@/components/playlists/ItemForm'
-import VideoPlayer from '@/components/playlists/VideoPlayer'
 import Ikon from '@/components/playlists/Ikon'
 
 const BG = '#0b0f1a'
@@ -15,8 +14,7 @@ export default function PlaylistApp({ code, has_pin }) {
   const [pin, setPin] = useState('')
   const [pinErr, setPinErr] = useState('')
   const [items, setItems] = useState(null)
-  const [lihat, setLihat] = useState({ nama: 'home' }) // home | detail | form
-  const [tunnel, setTunnel] = useState('')
+  const [form, setForm] = useState(null) // null | { type, item? }
   const [prog, setProg] = useState({})
 
   const muat = useCallback(async () => {
@@ -32,7 +30,6 @@ export default function PlaylistApp({ code, has_pin }) {
       if (typeof window !== 'undefined' && sessionStorage.getItem('ps_unlock_' + code)) {
         setTerkunci(false)
       }
-      setTunnel(await tunnelBase())
       setProg(bacaProgress(code))
     })()
     return () => { hidup = false }
@@ -94,6 +91,13 @@ export default function PlaylistApp({ code, has_pin }) {
     }
   }
 
+  const hapusItem = async (item) => {
+    if (!confirm(`Hapus "${item.title}" dari playlist?`)) return
+    const p = sessionStorage.getItem('ps_pin_' + code) || ''
+    await fetch(`/api/playlists/items?id=${item.id}&code=${encodeURIComponent(code)}&pin=${p}`, { method: 'DELETE' })
+    muat()
+  }
+
   if (terkunci) {
     return (
       <div style={tengah}>
@@ -119,49 +123,25 @@ export default function PlaylistApp({ code, has_pin }) {
         <b style={{ fontSize: 18 }}>{code}</b>
         <span style={{ flex: 1 }} />
         <button onClick={aturPin} style={btnIkon}><Ikon nama="kunci" size={14} /> PIN</button>
-        <button onClick={() => setLihat({ nama: 'form', type: 'movie' })} style={btnIkon}><Ikon nama="plus" size={14} /> Film</button>
-        <button onClick={() => setLihat({ nama: 'form', type: 'series' })} style={btnIkon}><Ikon nama="plus" size={14} /> Series</button>
+        <button onClick={() => setForm({ type: 'movie' })} style={btnIkon}><Ikon nama="plus" size={14} /> Film</button>
+        <button onClick={() => setForm({ type: 'series' })} style={btnIkon}><Ikon nama="plus" size={14} /> Series</button>
       </header>
 
       <span id="pinState" data-on={has_pin ? '1' : '0'} style={{ display: 'none' }} />
 
-      {lihat.nama === 'form' && (
+      {form && (
         <ItemForm
           code={code}
-          type={lihat.type}
-          awal={lihat.item || null}
-          onTutup={() => setLihat({ nama: 'home' })}
-          onSimpan={() => { setLihat({ nama: 'home' }); muat() }}
+          type={form.type}
+          awal={form.item || null}
+          onTutup={() => setForm(null)}
+          onSimpan={() => { setForm(null); muat() }}
         />
       )}
 
-      {lihat.nama === 'detail' && (
-        <Detail
-          item={lihat.item}
-          tunnel={tunnel}
-          code={code}
-          onKembali={() => {
-            setLihat({ nama: 'home' })
-            try { window.history.replaceState(null, '', `/p/${code}`) } catch (_) {}
-          }}
-          onEdit={() => setLihat({ nama: 'form', type: lihat.item.type, item: lihat.item })}
-          onHapus={async () => {
-            if (!confirm('Hapus dari playlist?')) return
-            const p = sessionStorage.getItem('ps_pin_' + code) || ''
-            await fetch(`/api/playlists/items?id=${lihat.item.id}&code=${encodeURIComponent(code)}&pin=${p}`, { method: 'DELETE' })
-            setLihat({ nama: 'home' })
-            muat()
-          }}
-          onPutar={(ep) => {
-            simpanProgress(code, lihat.item.id, ep, 0, 0)
-            setProg(bacaProgress(code))
-          }}
-        />
-      )}
+      {items === null && <p style={{ padding: 24, color: '#888' }}>Memuat...</p>}
 
-      {lihat.nama === 'home' && items === null && <p style={{ padding: 24, color: '#888' }}>Memuat...</p>}
-
-      {lihat.nama === 'home' && items !== null && (
+      {items !== null && (
         <main style={{ padding: '4px 20px 40px', maxWidth: 1100, margin: 'auto' }}>
           {kunci ? (
             <div style={{ ...CARD_, textAlign: 'center', padding: 40, marginTop: 30 }}>
@@ -169,14 +149,16 @@ export default function PlaylistApp({ code, has_pin }) {
               <h2>Playlist masih kosong</h2>
               <p style={{ color: '#888' }}>Tambahkan film atau series pertama ke library-mu.</p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                <button onClick={() => setLihat({ nama: 'form', type: 'movie' })} style={btnUtama}>+ Tambah Film</button>
-                <button onClick={() => setLihat({ nama: 'form', type: 'series' })} style={btnKedua}>+ Tambah Series</button>
+                <button onClick={() => setForm({ type: 'movie' })} style={btnUtama}>+ Tambah Film</button>
+                <button onClick={() => setForm({ type: 'series' })} style={btnKedua}>+ Tambah Series</button>
               </div>
             </div>
           ) : (
             <>
-              <Rak ikon="film" judul="Film" isi={film} onPilih={(item) => setLihat({ nama: 'detail', item })} prog={prog} />
-              <Rak ikon="tv" judul="Series" isi={series} onPilih={(item) => setLihat({ nama: 'detail', item })} prog={prog} />
+              <Rak code={code} ikon="film" judul="Film" isi={film} prog={prog}
+                onEdit={(item) => setForm({ type: item.type, item })} onHapus={hapusItem} />
+              <Rak code={code} ikon="tv" judul="Series" isi={series} prog={prog}
+                onEdit={(item) => setForm({ type: item.type, item })} onHapus={hapusItem} />
             </>
           )}
           <p style={{ marginTop: 30 }}>
@@ -188,7 +170,7 @@ export default function PlaylistApp({ code, has_pin }) {
   )
 }
 
-function Rak({ ikon, judul, isi, onPilih, prog }) {
+function Rak({ code, ikon, judul, isi, prog, onEdit, onHapus }) {
   if (!isi.length) return null
   return (
     <section style={{ marginTop: 24 }}>
@@ -197,91 +179,28 @@ function Rak({ ikon, judul, isi, onPilih, prog }) {
       </h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12 }}>
         {isi.map((it) => {
+          const slug = it.slug || slugify(it.title)
           const eps = (it.embeds || []).map((e) => e.ep)
           const lanjut = eps.some((ep) => prog[it.id + ':' + ep])
           return (
-            <div key={it.id} onClick={() => onPilih(it)} style={{ cursor: 'pointer' }}>
-              <div style={{ position: 'relative', aspectRatio: '2/3', background: '#222b45', borderRadius: 8, overflow: 'hidden' }}>
-                {it.poster && <img src={it.poster} alt={it.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                {lanjut && <span style={badge}>Lanjut</span>}
+            <div key={it.id} style={{ position: 'relative' }}>
+              <a href={`/p/${code}/${slug}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                <div style={{ position: 'relative', aspectRatio: '2/3', background: '#222b45', borderRadius: 8, overflow: 'hidden' }}>
+                  {it.poster && <img src={it.poster} alt={it.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                  {lanjut && <span style={badge}>Lanjut</span>}
+                </div>
+                <div style={{ fontSize: 13, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title}</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{it.year || ''}{it.rating ? ` ★ ${it.rating}` : ''}</div>
+              </a>
+              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                <button onClick={() => onEdit(it)} style={miniBtn} title="Edit"><Ikon nama="edit" size={13} /></button>
+                <button onClick={() => onHapus(it)} style={{ ...miniBtn, color: '#ff6b6b' }} title="Hapus"><Ikon nama="hapus" size={13} /></button>
               </div>
-              <div style={{ fontSize: 13, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title}</div>
-              <div style={{ fontSize: 11, color: '#888' }}>{it.year || ''}{it.rating ? ` ★ ${it.rating}` : ''}</div>
             </div>
           )
         })}
       </div>
     </section>
-  )
-}
-
-function Detail({ item, tunnel, code, onKembali, onEdit, onHapus, onPutar }) {
-  const [ep, setEp] = useState(1)
-  const [salin, setSalin] = useState(false)
-  const embeds = item.embeds || []
-  const slug = item.slug || slugify(item.title)
-
-  const pilihEp = (e) => {
-    setEp(e.ep)
-    onPutar(e.ep)
-    try {
-      window.history.replaceState(null, '', `/p/${code}/${slug}/${e.ep}`)
-    } catch (_) {}
-  }
-  const urlEp = (e) => (e ? (e.url || e.embed || '') : '')
-  const linkEp = (n) => (typeof window !== 'undefined' ? window.location.origin : '') + `/p/${code}/${slug}/${n}`
-  const aktif = embeds.find((e) => Number(e.ep) === Number(ep)) || embeds[0]
-
-  return (
-    <div>
-      {item.backdrop && (
-        <div style={{ height: 220, background: `url(${item.backdrop}) center/cover`, WebkitMaskImage: 'linear-gradient(#000, transparent)', maskImage: 'linear-gradient(#000, transparent)' }} />
-      )}
-      <main style={{ padding: '0 20px 40px', maxWidth: 900, margin: 'auto', marginTop: item.backdrop ? -60 : 12 }}>
-        <button onClick={onKembali} style={btnIkon}><Ikon nama="kembali" size={14} /> Kembali</button>
-        <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
-          {item.poster && <img src={item.poster} alt={item.title} style={{ width: 150, borderRadius: 8 }} />}
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <h1 style={{ margin: '0 0 6px' }}>{item.title}</h1>
-            <div style={{ color: '#888', fontSize: 13 }}>
-              {[item.year, item.genre, item.duration].filter(Boolean).join(' • ')}
-              {item.rating ? `  ★ ${item.rating}` : ''}
-            </div>
-            <p style={{ color: '#bbb', fontSize: 14 }}>{item.synopsis}</p>
-            {item.cast && <p style={{ color: '#888', fontSize: 13 }}>Pemain: {item.cast}</p>}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={onEdit} style={btnIkon}><Ikon nama="edit" size={14} /> Edit</button>
-              <button onClick={onHapus} style={{ ...btnIkon, color: '#ff6b6b' }}><Ikon nama="hapus" size={14} /> Hapus</button>
-            </div>
-          </div>
-        </div>
-
-        <h3 style={{ marginTop: 24 }}>{item.type === 'series' ? 'Episode' : 'Putar'}</h3>
-        {embeds.length === 0 && <p style={{ color: '#888', fontSize: 13 }}>Belum ada link tonton. Tambahkan lewat Edit.</p>}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {embeds.map((e) => (
-            <button key={e.ep} onClick={() => pilihEp(e)} style={{ ...btnKecil, ...(Number(e.ep) === Number(ep) ? { borderColor: AKSEN, color: AKSEN } : {}) }}>
-              {item.type === 'series' ? 'E' + e.ep : <><Ikon nama="putar" size={13} /> Putar</>}
-            </button>
-          ))}
-        </div>
-
-        {aktif && urlEp(aktif) ? (
-          <div style={{ marginTop: 16 }}>
-            <VideoPlayer key={ep + urlEp(aktif)} embedUrl={urlEp(aktif)} title={item.title} tunnel={tunnel} onPertamaPutar={() => onPutar(ep)} />
-            {item.type === 'series' && <NavEp embeds={embeds} ep={aktif.ep} onPindah={(n) => pilihEp({ ep: n })} />}
-            <button
-              onClick={() => { navigator.clipboard?.writeText(linkEp(aktif.ep)); setSalin(true); setTimeout(() => setSalin(false), 2000) }}
-              style={{ ...btnIkon, marginTop: 8 }}
-            >
-              {salin ? <><Ikon nama="cek" size={14} /> Link disalin!</> : <><Ikon nama="tautan" size={14} /> Salin link E{aktif.ep}</>}
-            </button>
-          </div>
-        ) : (
-          embeds.length > 0 && <p style={{ color: '#f0ad4e', fontSize: 13 }}>Episode ini belum punya link tonton.</p>
-        )}
-      </main>
-    </div>
   )
 }
 
@@ -308,23 +227,6 @@ const btnUtama = { padding: '12px 20px', background: AKSEN, color: '#fff', borde
 const btnKedua = { padding: '12px 20px', background: '#222b45', color: '#fff', border: 0, borderRadius: 8, cursor: 'pointer' }
 const btnKecil = { padding: '8px 12px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', fontSize: 13 }
 const btnIkon = { padding: '8px 12px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }
+const miniBtn = { padding: '6px 8px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'inline-flex' }
 const input = { width: '100%', padding: 12, fontSize: 16, background: '#0b0f1a', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, boxSizing: 'border-box', marginTop: 8 }
 const badge = { position: 'absolute', top: 6, left: 6, background: AKSEN, color: '#fff', fontSize: 10, padding: '2px 8px', borderRadius: 10 }
-
-// Navigasi prev/next episode (tetangga terdekat yang ada linknya)
-function NavEp({ embeds, ep, onPindah }) {
-  const nos = [...new Set(embeds.map((e) => Number(e.ep)))].sort((a, b) => a - b)
-  const i = nos.indexOf(Number(ep))
-  const prev = i > 0 ? nos[i - 1] : null
-  const next = i >= 0 && i < nos.length - 1 ? nos[i + 1] : null
-  if (prev === null && next === null) return null
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-      <button disabled={prev === null} onClick={() => onPindah(prev)} style={navBtn}><Ikon nama="chevKiri" size={14} /> E{prev ?? '–'}</button>
-      <span style={{ color: '#888', fontSize: 13 }}>E{ep}</span>
-      <button disabled={next === null} onClick={() => onPindah(next)} style={navBtn}>E{next ?? '–'} <Ikon nama="chevKanan" size={14} /></button>
-    </div>
-  )
-}
-
-const navBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer' }

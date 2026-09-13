@@ -1,15 +1,13 @@
 'use client'
 
 // Halaman nonton langsung: /p/KODE/slug-judul/EP
-// Player native + gate PIN (sesi per browser).
+// Player native (tidak autoplay) + gate PIN. Navigasi antar episode = reload.
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { sha256hex, tunnelBase } from '@/lib/playlist'
+import { sha256hex, tunnelBase, simpanProgress } from '@/lib/playlist'
 import VideoPlayer from '@/components/playlists/VideoPlayer'
 import Ikon from '@/components/playlists/Ikon'
 
 export default function WatchClient({ code, hasPinServer, item, epAwal }) {
-  const router = useRouter()
   const [terkunci, setTerkunci] = useState(hasPinServer)
   const [pin, setPin] = useState('')
   const [pinErr, setPinErr] = useState('')
@@ -44,11 +42,7 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
   const embeds = item.embeds || []
   const aktif = embeds.find((e) => Number(e.ep) === Number(ep)) || embeds[0]
   const url = aktif?.url || aktif?.embed || ''
-
-  const pindahEp = (novo) => {
-    setEp(novo)
-    router.replace(`/p/${code}/${item.slug}/${novo}`)
-  }
+  const linkEp = (n) => `/p/${code}/${item.slug}/${n}`
 
   if (terkunci) {
     return (
@@ -67,22 +61,30 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
     <div style={{ background: '#0b0f1a', minHeight: '100vh', color: '#eee' }}>
       <main style={{ maxWidth: 900, margin: 'auto', padding: '12px 16px 40px' }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
-          <a href={`/p/${code}`} style={{ color: '#00a4dc', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Ikon nama="kembali" /> {code}</a>
+          <a href={`/p/${code}/${item.slug}`} style={{ color: '#00a4dc', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Ikon nama="kembali" size={14} /> {item.title}
+          </a>
           <span style={{ flex: 1 }} />
-          <span style={{ color: '#888', fontSize: 13 }}>{item.title} {item.type === 'series' ? `· E${ep}` : ''}</span>
+          <span style={{ color: '#888', fontSize: 13 }}>{item.type === 'series' ? `E${ep}` : ''}</span>
         </div>
         {url ? (
-          <VideoPlayer key={ep + url} embedUrl={url} title={item.title} tunnel={tunnel} />
+          <VideoPlayer
+            key={ep + url}
+            embedUrl={url}
+            title={`${item.title}${item.type === 'series' ? ' E' + ep : ''}`}
+            tunnel={tunnel}
+            onPertamaPutar={() => simpanProgress(code, item.id, ep, 0, 0)}
+          />
         ) : (
           <p style={{ color: '#f0ad4e' }}>Episode ini belum punya link tonton.</p>
         )}
         {item.type === 'series' && embeds.length > 1 && (
           <>
-            <NavEp embeds={embeds} ep={ep} onPindah={pindahEp} />
+            <NavEp code={code} slug={item.slug} embeds={embeds} ep={ep} />
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
               {embeds.map((e) => (
-                <button key={e.ep} onClick={() => pindahEp(e.ep)}
-                  style={Number(e.ep) === Number(ep) ? epOn : epBtn}>E{e.ep}</button>
+                <a key={e.ep} href={linkEp(e.ep)}
+                  style={Number(e.ep) === Number(ep) ? epOn : epBtn}>E{e.ep}</a>
               ))}
             </div>
           </>
@@ -92,15 +94,8 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
   )
 }
 
-const tengah = { background: '#0b0f1a', minHeight: '100vh', color: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }
-const kotak = { background: '#141b2e', borderRadius: 12, padding: 20 }
-const input = { width: '100%', padding: 12, fontSize: 16, background: '#0b0f1a', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, boxSizing: 'border-box', marginTop: 8 }
-const btn = { width: '100%', padding: 12, background: '#00a4dc', color: '#fff', border: 0, borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', marginTop: 12 }
-const epBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer' }
-const epOn = { ...epBtn, borderColor: '#00a4dc', color: '#00a4dc', fontWeight: 'bold' }
-
-// Navigasi prev/next episode (tetangga terdekat yang ada linknya)
-function NavEp({ embeds, ep, onPindah }) {
+// Navigasi prev/next episode via link penuh (reload halaman)
+function NavEp({ code, slug, embeds, ep }) {
   const nos = [...new Set(embeds.map((e) => Number(e.ep)))].sort((a, b) => a - b)
   const i = nos.indexOf(Number(ep))
   const prev = i > 0 ? nos[i - 1] : null
@@ -108,11 +103,25 @@ function NavEp({ embeds, ep, onPindah }) {
   if (prev === null && next === null) return null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-      <button disabled={prev === null} onClick={() => onPindah(prev)} style={navBtn}><Ikon nama="chevKiri" size={14} /> E{prev ?? '–'}</button>
+      {prev === null ? (
+        <span style={{ ...navBtn, opacity: 0.4 }}>E–</span>
+      ) : (
+        <a href={`/p/${code}/${slug}/${prev}`} style={navBtn}><Ikon nama="chevKiri" size={14} /> E{prev}</a>
+      )}
       <span style={{ color: '#888', fontSize: 13 }}>E{ep}</span>
-      <button disabled={next === null} onClick={() => onPindah(next)} style={navBtn}>E{next ?? '–'} <Ikon nama="chevKanan" size={14} /></button>
+      {next === null ? (
+        <span style={{ ...navBtn, opacity: 0.4 }}>E–</span>
+      ) : (
+        <a href={`/p/${code}/${slug}/${next}`} style={navBtn}>E{next} <Ikon nama="chevKanan" size={14} /></a>
+      )}
     </div>
   )
 }
 
-const navBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer' }
+const tengah = { background: '#0b0f1a', minHeight: '100vh', color: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }
+const kotak = { background: '#141b2e', borderRadius: 12, padding: 20 }
+const input = { width: '100%', padding: 12, fontSize: 16, background: '#0b0f1a', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, boxSizing: 'border-box', marginTop: 8 }
+const btn = { width: '100%', padding: 12, background: '#00a4dc', color: '#fff', border: 0, borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', marginTop: 12 }
+const epBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', textDecoration: 'none', fontSize: 14 }
+const epOn = { ...epBtn, borderColor: '#00a4dc', color: '#00a4dc', fontWeight: 'bold' }
+const navBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', textDecoration: 'none', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 4 }
