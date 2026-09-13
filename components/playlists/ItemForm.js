@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { sha256hex } from '@/lib/playlist'
+import { slugify } from '@/lib/playlist'
 
 const AKSEN = '#00a4dc'
 
@@ -13,6 +13,7 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
   const [info, setInfo] = useState('')
   const [f, setF] = useState(() => ({
     title: awal?.title || '',
+    slug: awal?.slug || '',
     year: awal?.year || '',
     poster: awal?.poster || '',
     backdrop: awal?.backdrop || '',
@@ -97,6 +98,7 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
       pin_hash: pin,
       type: tipe,
       title: f.title.trim(),
+      slug: f.slug.trim() || undefined,
       year: f.year || null,
       poster: f.poster || null,
       backdrop: f.backdrop || null,
@@ -155,6 +157,8 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
 
         <label style={lbl}>Judul *</label>
         <input value={f.title} onChange={(e) => set('title', e.target.value)} style={input} />
+        <label style={lbl}>Slug URL (kosongkan = otomatis dari judul)</label>
+        <input value={f.slug} onChange={(e) => set('slug', e.target.value)} style={input} placeholder={slugify(f.title)} />
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ flex: 1 }}><label style={lbl}>Tahun</label><input value={f.year} onChange={(e) => set('year', e.target.value)} style={input} inputMode="numeric" /></div>
           <div style={{ flex: 1 }}><label style={lbl}>Rating</label><input value={f.rating} onChange={(e) => set('rating', e.target.value)} style={input} inputMode="decimal" /></div>

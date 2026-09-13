@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { sha256hex, tunnelBase, bacaProgress, simpanProgress } from '@/lib/playlist'
+import { sha256hex, tunnelBase, bacaProgress, simpanProgress, slugify } from '@/lib/playlist'
 import ItemForm from '@/components/playlists/ItemForm'
+import VideoPlayer from '@/components/playlists/VideoPlayer'
 
 const BG = '#0b0f1a'
 const CARD = '#141b2e'
@@ -66,18 +67,17 @@ export default function PlaylistApp({ code, has_pin }) {
   }
 
   const aturPin = async () => {
-    if (has_pin || items === null) return
     const cur = sessionStorage.getItem('ps_pin_' + code) || ''
-    const p1 = prompt(hasPinAktif() ? 'PIN lama:' : 'Buat PIN baru (4-32 karakter, kosongkan untuk batal):')
+    const aktif = document.getElementById('pinState')?.dataset.on === '1'
+    const p1 = prompt(aktif ? 'PIN lama:' : 'Buat PIN baru (4-32 karakter, kosongkan untuk batal):')
     if (p1 === null || p1 === '') return
     let curHash = cur
-    if (hasPinAktif()) {
+    let baru = p1
+    if (aktif) {
       curHash = await sha256hex(p1)
       const p2 = prompt('PIN baru:')
       if (p2 === null || p2 === '') return
-      var baru = p2
-    } else {
-      var baru = p1
+      baru = p2
     }
     const r = await fetch('/api/playlists', {
       method: 'PUT',
@@ -91,11 +91,6 @@ export default function PlaylistApp({ code, has_pin }) {
       alert('PIN ' + (j.has_pin ? 'aktif.' : 'mati.'))
       location.reload()
     }
-  }
-
-  const hasPinAktif = () => {
-    // status PIN versi server ditanya ulang biar segar
-    return document.getElementById('pinState')?.dataset.on === '1'
   }
 
   if (terkunci) {
@@ -143,6 +138,7 @@ export default function PlaylistApp({ code, has_pin }) {
         <Detail
           item={lihat.item}
           tunnel={tunnel}
+          code={code}
           onKembali={() => setLihat({ nama: 'home' })}
           onEdit={() => setLihat({ nama: 'form', type: lihat.item.type, item: lihat.item })}
           onHapus={async () => {
@@ -213,21 +209,19 @@ function Rak({ judul, isi, onPilih, prog }) {
   )
 }
 
-function Detail({ item, tunnel, onKembali, onEdit, onHapus, onPutar }) {
+function Detail({ item, tunnel, code, onKembali, onEdit, onHapus, onPutar }) {
   const [ep, setEp] = useState(1)
-  const [putar, setPutar] = useState(null)
+  const [salin, setSalin] = useState(false)
   const embeds = item.embeds || []
+  const slug = item.slug || slugify(item.title)
 
-  const mulai = (e) => {
-    const url = e.url || e.embed
-    if (!url) return
+  const pilihEp = (e) => {
+    setEp(e.ep)
     onPutar(e.ep)
-    if (/seeks\.cloud|abyssplayer\.com|abyss\.to|\.m3u8(\?|$)|^https?:\/\/.+\.mp4/i.test(url) && tunnel) {
-      setPutar(tunnel + '/?play=' + encodeURIComponent(url))
-    } else {
-      setPutar(url)
-    }
   }
+  const urlEp = (e) => (e ? (e.url || e.embed || '') : '')
+  const linkEp = (n) => (typeof window !== 'undefined' ? window.location.origin : '') + `/p/${code}/${slug}/${n}`
+  const aktif = embeds.find((e) => Number(e.ep) === Number(ep)) || embeds[0]
 
   return (
     <div>
@@ -257,19 +251,24 @@ function Detail({ item, tunnel, onKembali, onEdit, onHapus, onPutar }) {
         {embeds.length === 0 && <p style={{ color: '#888', fontSize: 13 }}>Belum ada link tonton. Tambahkan lewat Edit.</p>}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {embeds.map((e) => (
-            <button key={e.ep} onClick={() => { setEp(e.ep); mulai(e) }} style={{ ...btnKecil, ...(e.ep === ep ? { borderColor: AKSEN, color: AKSEN } : {}) }}>
+            <button key={e.ep} onClick={() => pilihEp(e)} style={{ ...btnKecil, ...(Number(e.ep) === Number(ep) ? { borderColor: AKSEN, color: AKSEN } : {}) }}>
               {item.type === 'series' ? 'E' + e.ep : '▶ Putar'}
             </button>
           ))}
         </div>
 
-        {putar && (
+        {aktif && urlEp(aktif) ? (
           <div style={{ marginTop: 16 }}>
-            <div style={{ position: 'relative', paddingTop: '56.25%', background: '#000', borderRadius: 12, overflow: 'hidden' }}>
-              <iframe src={putar} allow="autoplay; fullscreen; encrypted-media" allowFullScreen style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }} />
-            </div>
-            <p style={{ color: '#666', fontSize: 12 }}>Kalau iframe macet, <a href={putar} target="_blank" rel="noreferrer" style={{ color: AKSEN }}>buka di tab baru</a>.</p>
+            <VideoPlayer key={ep + urlEp(aktif)} embedUrl={urlEp(aktif)} title={item.title} tunnel={tunnel} onPertamaPutar={() => onPutar(ep)} />
+            <button
+              onClick={() => { navigator.clipboard?.writeText(linkEp(aktif.ep)); setSalin(true); setTimeout(() => setSalin(false), 2000) }}
+              style={{ ...btnKecil, marginTop: 8 }}
+            >
+              {salin ? 'Link disalin!' : `🔗 Salin link E${aktif.ep}`}
+            </button>
           </div>
+        ) : (
+          embeds.length > 0 && <p style={{ color: '#f0ad4e', fontSize: 13 }}>Episode ini belum punya link tonton.</p>
         )}
       </main>
     </div>

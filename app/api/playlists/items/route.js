@@ -54,6 +54,7 @@ export async function POST(request) {
     playlist_code: code,
     type: body.type,
     title: String(body.title).trim(),
+    slug: null,
     year: body.year ? parseInt(body.year) || null : null,
     poster: body.poster || null,
     backdrop: body.backdrop || null,
@@ -71,11 +72,20 @@ export async function POST(request) {
     subtitles: Array.isArray(body.subtitles) ? body.subtitles : [],
   }
 
-  const { data, error } = await supabase
-    .from('ps_playlist_items')
-    .insert(row)
-    .select()
-    .single()
+  const dasar = String(body.slug || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'tanpa-judul'
+
+  let data = null
+  let error = null
+  for (let i = 0; i < 3; i++) {
+    row.slug = i === 0 ? dasar : `${dasar}-${Date.now().toString(36)}${i}`
+    const res = await supabase.from('ps_playlist_items').insert(row).select().single()
+    data = res.data
+    error = res.error
+    if (!error || error.code !== '23505') break
+  }
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 })
@@ -99,7 +109,7 @@ export async function PUT(request) {
   }
 
   const boleh = [
-    'type', 'title', 'year', 'poster', 'backdrop', 'synopsis', 'genre',
+    'type', 'title', 'slug', 'year', 'poster', 'backdrop', 'synopsis', 'genre',
     'rating', 'cast', 'director', 'duration', 'tmdb_id', 'imdb_id',
     'embeds', 'downloads', 'mirrors', 'subtitles',
   ]
