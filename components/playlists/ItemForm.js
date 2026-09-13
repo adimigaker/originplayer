@@ -219,7 +219,7 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
                 </>
               ) : (
                 <>
-                  <b>E{e.ep}</b>
+                  <b>{e.ep}</b>
                   <button onClick={() => { setEditEp(i); setTmpEp(e.ep) }} style={btnKecil} title="Edit nomor"><Ikon nama="edit" size={14} /></button>
                 </>
               )}

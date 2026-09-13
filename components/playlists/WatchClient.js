@@ -76,13 +76,13 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
             <Ikon nama="kembali" size={14} /> {item.title}
           </a>
           <span style={{ flex: 1 }} />
-          <span style={{ color: '#888', fontSize: 13 }}>{item.type === 'series' ? `E${ep}` : ''}</span>
+          <span style={{ color: '#888', fontSize: 13 }}>{item.type === 'series' ? `${ep}` : ''}</span>
         </div>
         {url ? (
           <VideoPlayer
             key={ep + url}
             embedUrl={url}
-            title={`${item.title}${item.type === 'series' ? ' E' + ep : ''}`}
+            title={`${item.title}${item.type === 'series' ? ' ' + ep : ''}`}
             tunnel={tunnel}
             onPertamaPutar={() => simpanProgress(code, item.id, ep, 0, 0)}
           />
@@ -107,7 +107,7 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
                 return (
                   <a key={e.ep} href={linkEp(e.ep)}
                     style={aktif ? epOnGrid : sudah ? { ...epGrid, color: '#00a4dc' } : epGrid}>
-                    E{e.ep}{sudah ? ' ✓' : ''}
+                    {e.ep}{sudah ? ' ✓' : ''}
                   </a>
                 )
               })}
@@ -131,13 +131,13 @@ function NavEp({ code, slug, embeds, ep }) {
       {prev === null ? (
         <span style={navMati}><Ikon nama="chevKiri" size={14} /></span>
       ) : (
-        <a href={`/p/${code}/${slug}/${prev}`} style={navBtn}><Ikon nama="chevKiri" size={14} /> E{prev}</a>
+        <a href={`/p/${code}/${slug}/${prev}`} style={navBtn}><Ikon nama="chevKiri" size={14} /> {prev}</a>
       )}
-      <span style={navTengah}>E{ep} / {nos.length}</span>
+      <span style={navTengah}>{ep} / {nos.length}</span>
       {next === null ? (
         <span style={navMati}><Ikon nama="chevKanan" size={14} /></span>
       ) : (
-        <a href={`/p/${code}/${slug}/${next}`} style={navBtn}>E{next} <Ikon nama="chevKanan" size={14} /></a>
+        <a href={`/p/${code}/${slug}/${next}`} style={navBtn}>{next} <Ikon nama="chevKanan" size={14} /></a>
       )}
     </div>
   )

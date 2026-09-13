@@ -95,7 +95,7 @@ export default function DetailRoute({ code, hasPinServer, item }) {
                 borderRadius: 10, textDecoration: 'none', fontSize: 14, textAlign: 'center',
                 fontWeight: ditonton ? 'bold' : 'normal',
               }}>
-                {item.type === 'series' ? 'E' + e.ep : 'Putar'}{ditonton ? ' ✓' : ''}
+                {item.type === 'series' ? e.ep : 'Putar'}{ditonton ? ' ✓' : ''}
               </a>
             )
           })}
