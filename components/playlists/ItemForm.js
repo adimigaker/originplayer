@@ -6,11 +6,14 @@ import { slugify } from '@/lib/playlist'
 const AKSEN = '#00a4dc'
 
 // Form tambah/edit film & series. Autofill dari URL IMDb/TMDB, bisa skip manual.
+// Episode ala ps21dash: kartu per episode, edit nomor, sisip atas/bawah, hapus, urutkan.
 export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
   const [tipe, setTipe] = useState(awal?.type || type)
   const [cari, setCari] = useState('')
   const [hasil, setHasil] = useState([])
   const [info, setInfo] = useState('')
+  const [editEp, setEditEp] = useState(null)
+  const [tmpEp, setTmpEp] = useState(1)
   const [f, setF] = useState(() => ({
     title: awal?.title || '',
     slug: awal?.slug || '',
@@ -89,6 +92,24 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
     })
   }
 
+  const sisip = (i, arah) => {
+    setF((s) => {
+      const arr = [...s.embeds]
+      const no = (arr[i]?.ep || 1) + arah
+      if (no < 1) return s
+      arr.splice(i + (arah > 0 ? 1 : 0), 0, { ep: no, url: '' })
+      return { ...s, embeds: arr }
+    })
+  }
+
+  const hapusEp = (i) => {
+    setF((s) => ({ ...s, embeds: s.embeds.filter((_, k) => k !== i) }))
+  }
+
+  const urutkan = () => {
+    setF((s) => ({ ...s, embeds: [...s.embeds].sort((a, b) => (a.ep || 0) - (b.ep || 0)) }))
+  }
+
   const simpan = async () => {
     if (!f.title.trim()) { setSimpanInfo('Judul wajib.'); return }
     setSimpanInfo('Menyimpan...')
@@ -110,7 +131,10 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
       duration: f.duration || null,
       tmdb_id: f.tmdb_id || null,
       imdb_id: f.imdb_id || null,
-      embeds: f.embeds.filter((e) => (e.url || e.embed || '').trim()).map((e) => ({ ep: e.ep || 1, url: (e.url || e.embed || '').trim() })),
+      embeds: f.embeds
+        .filter((e) => (e.url || e.embed || '').trim())
+        .sort((a, b) => (a.ep || 0) - (b.ep || 0))
+        .map((e) => ({ ep: e.ep || 1, url: (e.url || e.embed || '').trim() })),
       downloads: f.downloads,
     }
     const method = awal?.id ? 'PUT' : 'POST'
@@ -177,18 +201,37 @@ export default function ItemForm({ code, type, awal, onTutup, onSimpan }) {
         <label style={lbl}>Sutradara</label>
         <input value={f.director} onChange={(e) => set('director', e.target.value)} style={input} />
 
-        <label style={lbl}>{tipe === 'series' ? 'Link tonton per episode (URL seeks / abyss / MP4)' : 'Link tonton (URL seeks / abyss / MP4)'}</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label style={{ ...lbl, flex: 1 }}>{tipe === 'series' ? `Link tonton per episode (${f.embeds.length})` : 'Link tonton (URL seeks / abyss / MP4)'}</label>
+          {tipe === 'series' && <button onClick={urutkan} style={{ ...btnKecil, marginTop: 12 }} title="Urutkan menurut nomor">⇅ Urutkan</button>}
+        </div>
         {f.embeds.map((e, i) => (
-          <div key={i} style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-            {tipe === 'series' && (
-              <input type="number" min={1} value={e.ep} onChange={(ev) => setEp(i, 'ep', ev.target.value)} style={{ ...input, marginTop: 0, width: 70 }} />
-            )}
-            <input value={e.url || e.embed || ''} onChange={(ev) => setEp(i, 'url', ev.target.value)} placeholder="https://..." style={{ ...input, marginTop: 0, flex: 1 }} />
-            <button onClick={() => setF((s) => ({ ...s, embeds: s.embeds.filter((_, k) => k !== i) }))} style={btnKecil}>✕</button>
+          <div key={i} style={epCard}>
+            <div style={epHead}>
+              {editEp === i ? (
+                <>
+                  <input type="number" min={1} value={tmpEp} onChange={(ev) => setTmpEp(ev.target.value)} style={{ ...input, marginTop: 0, width: 80 }} />
+                  <button onClick={() => { setEp(i, 'ep', tmpEp); setEditEp(null) }} style={btnKecil}>Simpan</button>
+                </>
+              ) : (
+                <>
+                  <b>E{e.ep}</b>
+                  <button onClick={() => { setEditEp(i); setTmpEp(e.ep) }} style={btnKecil} title="Edit nomor">✏️</button>
+                </>
+              )}
+              <span style={{ flex: 1 }} />
+              {tipe === 'series' && <button title="Sisip episode di atas" onClick={() => sisip(i, -1)} style={btnKecil}>+↑</button>}
+              {tipe === 'series' && <button title="Sisip episode di bawah" onClick={() => sisip(i, 1)} style={btnKecil}>+↓</button>}
+              <button title="Hapus episode" onClick={() => hapusEp(i)} style={btnKecil}>✕</button>
+            </div>
+            <input value={e.url || e.embed || ''} onChange={(ev) => setEp(i, 'url', ev.target.value)} placeholder="https://..." style={{ ...input, marginTop: 6 }} />
           </div>
         ))}
         {tipe === 'series' && (
-          <button onClick={() => setF((s) => ({ ...s, embeds: [...s.embeds, { ep: (s.embeds.length + 1), url: '' }] }))} style={{ ...btnKecil, marginTop: 8 }}>+ Episode</button>
+          <button onClick={() => setF((s) => {
+            const maks = s.embeds.reduce((m, e) => Math.max(m, e.ep || 0), 0)
+            return { ...s, embeds: [...s.embeds, { ep: maks + 1, url: '' }] }
+          })} style={{ ...btnKecil, marginTop: 8 }}>+ Episode di akhir</button>
         )}
 
         {simpanInfo && <p style={{ color: '#f0ad4e', fontSize: 13 }}>{simpanInfo}</p>}
@@ -212,3 +255,5 @@ const baris = { display: 'flex', gap: 8, marginBottom: 4 }
 const tab = { flex: 1, padding: 10, background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer' }
 const tabOn = { ...tab, borderColor: AKSEN, color: AKSEN, fontWeight: 'bold' }
 const hasilBtn = { display: 'flex', gap: 8, alignItems: 'center', background: '#0b0f1a', border: '1px solid #333d5c', borderRadius: 8, color: '#fff', padding: 6, cursor: 'pointer', maxWidth: 200, textAlign: 'left' }
+const epCard = { background: '#0b0f1a', border: '1px solid #333d5c', borderRadius: 8, padding: 10, marginTop: 8 }
+const epHead = { display: 'flex', alignItems: 'center', gap: 8 }

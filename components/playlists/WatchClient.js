@@ -76,12 +76,15 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
           <p style={{ color: '#f0ad4e' }}>Episode ini belum punya link tonton.</p>
         )}
         {item.type === 'series' && embeds.length > 1 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-            {embeds.map((e) => (
-              <button key={e.ep} onClick={() => pindahEp(e.ep)}
-                style={Number(e.ep) === Number(ep) ? epOn : epBtn}>E{e.ep}</button>
-            ))}
-          </div>
+          <>
+            <NavEp embeds={embeds} ep={ep} onPindah={pindahEp} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+              {embeds.map((e) => (
+                <button key={e.ep} onClick={() => pindahEp(e.ep)}
+                  style={Number(e.ep) === Number(ep) ? epOn : epBtn}>E{e.ep}</button>
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>
@@ -94,3 +97,21 @@ const input = { width: '100%', padding: 12, fontSize: 16, background: '#0b0f1a',
 const btn = { width: '100%', padding: 12, background: '#00a4dc', color: '#fff', border: 0, borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', marginTop: 12 }
 const epBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer' }
 const epOn = { ...epBtn, borderColor: '#00a4dc', color: '#00a4dc', fontWeight: 'bold' }
+
+// Navigasi prev/next episode (tetangga terdekat yang ada linknya)
+function NavEp({ embeds, ep, onPindah }) {
+  const nos = [...new Set(embeds.map((e) => Number(e.ep)))].sort((a, b) => a - b)
+  const i = nos.indexOf(Number(ep))
+  const prev = i > 0 ? nos[i - 1] : null
+  const next = i >= 0 && i < nos.length - 1 ? nos[i + 1] : null
+  if (prev === null && next === null) return null
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+      <button disabled={prev === null} onClick={() => onPindah(prev)} style={navBtn}>← E{prev ?? '–'}</button>
+      <span style={{ color: '#888', fontSize: 13 }}>E{ep}</span>
+      <button disabled={next === null} onClick={() => onPindah(next)} style={navBtn}>E{next ?? '–'} →</button>
+    </div>
+  )
+}
+
+const navBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer' }

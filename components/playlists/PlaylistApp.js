@@ -260,6 +260,7 @@ function Detail({ item, tunnel, code, onKembali, onEdit, onHapus, onPutar }) {
         {aktif && urlEp(aktif) ? (
           <div style={{ marginTop: 16 }}>
             <VideoPlayer key={ep + urlEp(aktif)} embedUrl={urlEp(aktif)} title={item.title} tunnel={tunnel} onPertamaPutar={() => onPutar(ep)} />
+            {item.type === 'series' && <NavEp embeds={embeds} ep={aktif.ep} onPindah={(n) => pilihEp({ ep: n })} />}
             <button
               onClick={() => { navigator.clipboard?.writeText(linkEp(aktif.ep)); setSalin(true); setTimeout(() => setSalin(false), 2000) }}
               style={{ ...btnKecil, marginTop: 8 }}
@@ -299,3 +300,21 @@ const btnKedua = { padding: '12px 20px', background: '#222b45', color: '#fff', b
 const btnKecil = { padding: '8px 12px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', fontSize: 13 }
 const input = { width: '100%', padding: 12, fontSize: 16, background: '#0b0f1a', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, boxSizing: 'border-box', marginTop: 8 }
 const badge = { position: 'absolute', top: 6, left: 6, background: AKSEN, color: '#fff', fontSize: 10, padding: '2px 8px', borderRadius: 10 }
+
+// Navigasi prev/next episode (tetangga terdekat yang ada linknya)
+function NavEp({ embeds, ep, onPindah }) {
+  const nos = [...new Set(embeds.map((e) => Number(e.ep)))].sort((a, b) => a - b)
+  const i = nos.indexOf(Number(ep))
+  const prev = i > 0 ? nos[i - 1] : null
+  const next = i >= 0 && i < nos.length - 1 ? nos[i + 1] : null
+  if (prev === null && next === null) return null
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+      <button disabled={prev === null} onClick={() => onPindah(prev)} style={navBtn}>← E{prev ?? '–'}</button>
+      <span style={{ color: '#888', fontSize: 13 }}>E{ep}</span>
+      <button disabled={next === null} onClick={() => onPindah(next)} style={navBtn}>E{next ?? '–'} →</button>
+    </div>
+  )
+}
+
+const navBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer' }
