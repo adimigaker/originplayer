@@ -532,7 +532,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
         {/* judul atas */}
         <div style={{ ...ovBar, top: 0, background: 'linear-gradient(rgba(0,0,0,.65),transparent)', opacity: uiSembunyi ? 0 : 1 }}>
           <span style={qBadge}>{kualitas[qAktif]?.label?.split(' ')[0] || '–'}</span>
-          <button onClick={cast} style={tbtn} title="Cast ke TV"><Ikon nama="castM" size={24} /></button>
+          <button onClick={cast} style={tbtn} title="Cast ke TV"><span className="material-icons" style={{ fontSize: 28 }}>cast</span></button>
           <span style={{ flex: 1 }} />
           <span style={{ fontSize: 13, opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40%' }}>{title}</span>
           <button onClick={toggleCC} style={{ ...tbtn, ...(ccNyala ? { color: AKSEN } : {}) }} title="Subtitle"><Ikon nama="cc" size={22} /></button>
