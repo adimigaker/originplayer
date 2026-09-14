@@ -397,7 +397,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
     dataRef.current = { levels: [], proxy: '', meta: null, abyss: daftar }
     setKualitas(daftar.map((s, i) => ({ label: s.label + (s.ok ? '' : ' — mati'), i })))
     setMode('abyss')
-    const top = daftar.find((s) => s.ok)
+    const top = daftar.find((s) => s.ok && /720p/.test(s.label)) || daftar.find((s) => s.ok)
     if (!top) { st('Abyss gagal: semua kualitas mati di server.'); return }
     setQAktif(daftar.indexOf(top))
     v.onerror = () => { st('Video error — coba kualitas lain.') }
