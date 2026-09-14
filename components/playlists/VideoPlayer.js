@@ -53,6 +53,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
   const [kecepatan, setKecepatan] = useState(1)
   const pertama = useRef(false)
   const dataRef = useRef({ levels: [], proxy: '', meta: null, abyss: [] })
+  const abSesi = useRef(0) // token pantau versi-penuh abyss (batalkan yg basi)
 
   const st = (m) => setStatus(m)
   const px = () => (tunnel ? tunnel.replace(/\/$/, '') + '/proxy?url=' : '/proxy?url=')
@@ -404,6 +405,35 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
     v.src = top.purl
     st(`OK — Abyss ${top.label}`)
     if (autoPutar) v.play().catch(() => {})
+    // Versi penuh: VM rakit file statis sekali; pindah otomatis saat siap
+    const qiTop = daftar.indexOf(top)
+    const sesiAb = (abSesi.current += 1)
+    try { fetch(`${base}/pdfile?ab=${encodeURIComponent(slug)}&q=${qiTop}&prepare=1`).catch(() => {}) } catch (e) {}
+    const pantauAb = async () => {
+      if (sesiAb !== abSesi.current) return
+      try {
+        const rr = await fetch(`${base}/pdfile?ab=${encodeURIComponent(slug)}&q=${qiTop}&stat=1`)
+        const jj = await rr.json()
+        if (sesiAb !== abSesi.current) return
+        if (jj.ready) {
+          const urlPenuh = `${base}/pdfile?ab=${encodeURIComponent(slug)}&q=${qiTop}`
+          if (v.currentSrc === urlPenuh || v.src === urlPenuh) return
+          const t = v.currentTime || 0, lagi = !v.paused
+          const sekali = () => {
+            v.removeEventListener('loadedmetadata', sekali)
+            try { if (t > 1) v.currentTime = t } catch (e2) {}
+            if (lagi || autoPutar) v.play().catch(() => {})
+            st(`OK — versi penuh Abyss ${top.label} (seekbar natural).`)
+          }
+          v.addEventListener('loadedmetadata', sekali)
+          v.src = urlPenuh
+          st('Versi penuh siap — pindah (posisi aman)...')
+          return
+        }
+      } catch (e) {}
+      setTimeout(pantauAb, 8000)
+    }
+    setTimeout(pantauAb, 10000)
   }
 
   const mulaiLangsung = async (raw) => {
