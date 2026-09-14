@@ -91,13 +91,6 @@ export default function PlaylistApp({ code, has_pin }) {
     }
   }
 
-  const hapusItem = async (item) => {
-    if (!confirm(`Hapus "${item.title}" dari playlist?`)) return
-    const p = sessionStorage.getItem('ps_pin_' + code) || ''
-    await fetch(`/api/playlists/items?id=${item.id}&code=${encodeURIComponent(code)}&pin=${p}`, { method: 'DELETE' })
-    muat()
-  }
-
   if (terkunci) {
     return (
       <div style={tengah}>
@@ -155,10 +148,8 @@ export default function PlaylistApp({ code, has_pin }) {
             </div>
           ) : (
             <>
-              <Rak code={code} ikon="film" judul="Film" isi={film} prog={prog}
-                onEdit={(item) => setForm({ type: item.type, item })} onHapus={hapusItem} />
-              <Rak code={code} ikon="tv" judul="Series" isi={series} prog={prog}
-                onEdit={(item) => setForm({ type: item.type, item })} onHapus={hapusItem} />
+              <Rak code={code} ikon="film" judul="Film" isi={film} prog={prog} />
+              <Rak code={code} ikon="tv" judul="Series" isi={series} prog={prog} />
             </>
           )}
           <p style={{ marginTop: 30 }}>
@@ -170,7 +161,7 @@ export default function PlaylistApp({ code, has_pin }) {
   )
 }
 
-function Rak({ code, ikon, judul, isi, prog, onEdit, onHapus }) {
+function Rak({ code, ikon, judul, isi, prog }) {
   if (!isi.length) return null
   return (
     <section style={{ marginTop: 24 }}>
@@ -183,20 +174,14 @@ function Rak({ code, ikon, judul, isi, prog, onEdit, onHapus }) {
           const eps = (it.embeds || []).map((e) => e.ep)
           const lanjut = eps.some((ep) => prog[it.id + ':' + ep])
           return (
-            <div key={it.id} style={{ position: 'relative' }}>
-              <a href={`/p/${code}/${slug}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                <div style={{ position: 'relative', aspectRatio: '2/3', background: '#222b45', borderRadius: 8, overflow: 'hidden' }}>
-                  {it.poster && <img src={it.poster} alt={it.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                  {lanjut && <span style={badge}>Lanjut</span>}
-                </div>
-                <div style={{ fontSize: 13, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title}</div>
-                <div style={{ fontSize: 11, color: '#888' }}>{it.year || ''}{it.rating ? ` ★ ${it.rating}` : ''}</div>
-              </a>
-              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                <button onClick={() => onEdit(it)} style={miniBtn} title="Edit"><Ikon nama="edit" size={13} /></button>
-                <button onClick={() => onHapus(it)} style={{ ...miniBtn, color: '#ff6b6b' }} title="Hapus"><Ikon nama="hapus" size={13} /></button>
+            <a key={it.id} href={`/p/${code}/${slug}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div style={{ position: 'relative', aspectRatio: '2/3', background: '#222b45', borderRadius: 8, overflow: 'hidden' }}>
+                {it.poster && <img src={it.poster} alt={it.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                {lanjut && <span style={badge}>Lanjut</span>}
               </div>
-            </div>
+              <div style={{ fontSize: 13, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title}</div>
+              <div style={{ fontSize: 11, color: '#888' }}>{it.year || ''}{it.rating ? ` ★ ${it.rating}` : ''}</div>
+            </a>
           )
         })}
       </div>
@@ -227,6 +212,5 @@ const btnUtama = { padding: '12px 20px', background: AKSEN, color: '#fff', borde
 const btnKedua = { padding: '12px 20px', background: '#222b45', color: '#fff', border: 0, borderRadius: 8, cursor: 'pointer' }
 const btnKecil = { padding: '8px 12px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', fontSize: 13 }
 const btnIkon = { padding: '8px 12px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }
-const miniBtn = { padding: '6px 8px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'inline-flex' }
 const input = { width: '100%', padding: 12, fontSize: 16, background: '#0b0f1a', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, boxSizing: 'border-box', marginTop: 8 }
 const badge = { position: 'absolute', top: 6, left: 6, background: AKSEN, color: '#fff', fontSize: 10, padding: '2px 8px', borderRadius: 10 }

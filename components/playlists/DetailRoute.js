@@ -2,16 +2,19 @@
 
 // Halaman detail 1 tayangan: /p/KODE/slug-judul
 // Meta + daftar episode (link penuh = reload halaman). Tanpa autoplay.
+// Edit & hapus tinggal di sini (dashboard bersih).
 import { useState, useEffect } from 'react'
-import { tunnelBase, bacaProgress, simpanProgress } from '@/lib/playlist'
+import { bacaProgress } from '@/lib/playlist'
 import { sha256hex } from '@/lib/playlist'
 import Ikon from '@/components/playlists/Ikon'
+import ItemForm from '@/components/playlists/ItemForm'
 
 export default function DetailRoute({ code, hasPinServer, item }) {
   const [terkunci, setTerkunci] = useState(hasPinServer)
   const [pin, setPin] = useState('')
   const [pinErr, setPinErr] = useState('')
   const [prog, setProg] = useState({})
+  const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
     let hidup = true
@@ -36,6 +39,15 @@ export default function DetailRoute({ code, hasPinServer, item }) {
       sessionStorage.setItem('ps_unlock_' + code, '1')
       setTerkunci(false)
     } else setPinErr('PIN salah.')
+  }
+
+  const hapus = async () => {
+    if (!confirm(`Hapus "${item.title}" dari playlist?`)) return
+    const p = sessionStorage.getItem('ps_pin_' + code) || ''
+    const r = await fetch(`/api/playlists/items?id=${item.id}&code=${encodeURIComponent(code)}&pin=${p}`, { method: 'DELETE' })
+    const j = await r.json()
+    if (j.error) alert(j.error)
+    else window.location.assign(`/p/${code}`)
   }
 
   if (terkunci) {
@@ -77,11 +89,15 @@ export default function DetailRoute({ code, hasPinServer, item }) {
             </div>
             <p style={{ color: '#bbb', fontSize: 14 }}>{item.synopsis}</p>
             {item.cast && <p style={{ color: '#888', fontSize: 13 }}>Pemain: {item.cast}</p>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowForm(true)} style={btnIkon}><Ikon nama="edit" size={14} /> Edit</button>
+              <button onClick={hapus} style={{ ...btnIkon, color: '#ff6b6b' }}><Ikon nama="hapus" size={14} /> Hapus</button>
+            </div>
           </div>
         </div>
 
         <h3 style={{ marginTop: 24 }}>{item.type === 'series' ? 'Episode' : 'Putar'}</h3>
-        {embeds.length === 0 && <p style={{ color: '#888', fontSize: 13 }}>Belum ada link tonton.</p>}
+        {embeds.length === 0 && <p style={{ color: '#888', fontSize: 13 }}>Belum ada link tonton. Tambahkan lewat Edit.</p>}
         <div style={{ color: '#888', fontSize: 12, marginTop: 14, marginBottom: 8, textAlign: 'center' }}>
           {item.type === 'series' ? `Semua episode (${embeds.length})` : 'Tonton'}
         </div>
@@ -101,6 +117,16 @@ export default function DetailRoute({ code, hasPinServer, item }) {
           })}
         </div>
       </main>
+
+      {showForm && (
+        <ItemForm
+          code={code}
+          type={item.type}
+          awal={item}
+          onTutup={() => setShowForm(false)}
+          onSimpan={() => window.location.reload()}
+        />
+      )}
     </div>
   )
 }
@@ -109,4 +135,4 @@ const tengah = { background: '#0b0f1a', minHeight: '100vh', color: '#eee', displ
 const kotak = { background: '#141b2e', borderRadius: 12, padding: 20 }
 const input = { width: '100%', padding: 12, fontSize: 16, background: '#0b0f1a', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, boxSizing: 'border-box', marginTop: 8 }
 const btn = { width: '100%', padding: 12, background: '#00a4dc', color: '#fff', border: 0, borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', marginTop: 12 }
-const epBtn = { padding: '8px 14px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', textDecoration: 'none', fontSize: 14 }
+const btnIkon = { padding: '8px 12px', background: '#222b45', color: '#fff', border: '1px solid #333d5c', borderRadius: 8, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }
