@@ -128,9 +128,119 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
     }
   }
 
-  const unduh = () => {
-    const u = vid()?.src || vid()?.currentSrc
-    if (u) window.open(u, '_blank')
+  const castRef = useRef({ siap: false, sesi: null })
+
+  useEffect(() => {
+    // Muat Chromecast Sender sekali (kayak cleanplayer)
+    if (typeof window === 'undefined' || window.chrome?.cast) return
+    window.__onGCastApiAvailable = (ok) => {
+      if (!ok) return
+      try {
+        window.chrome.cast.initialize(
+          new window.chrome.cast.ApiConfig(
+            new window.chrome.cast.SessionRequest(window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID),
+            (s) => { castRef.current.sesi = s },
+            () => {},
+            window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED),
+          () => { castRef.current.siap = true },
+          () => { castRef.current.siap = false })
+      } catch (e) {}
+    }
+    const s = document.createElement('script')
+    s.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js'
+    s.async = true
+    document.head.appendChild(s)
+  }, [])
+
+  const urlCast = () => {
+    const v = vid()
+    const d = dataRef.current
+    if (mode === 'seeks' && d.levels.length) {
+      const lv = d.levels[qAktif] || d.levels[0]
+      return d.proxy + encodeURIComponent(lv.url)
+    }
+    return v?.src || v?.currentSrc || ''
+  }
+
+  const keChromecast = (stream, judul) => new Promise((res, rej) => {
+    try {
+      const chrome = window.chrome
+      if (!chrome?.cast || !castRef.current.siap) return rej(new Error('noapi'))
+      const muat = (sess) => {
+        castRef.current.sesi = sess
+        const mi = new chrome.cast.media.MediaInfo(stream, 'application/x-mpegurl')
+        mi.metadata = new chrome.cast.media.GenericMediaMetadata()
+        mi.metadata.title = judul || 'OriginPlayer'
+        sess.loadMedia(new chrome.cast.media.LoadRequest(mi), () => res('ok'), () => rej(new Error('load')))
+      }
+      if (castRef.current.sesi) return muat(castRef.current.sesi)
+      chrome.cast.requestSession(muat, (e) => {
+        if (e?.code === chrome.cast.ErrorCode.CANCEL) return rej({ byUser: true })
+        rej(new Error('sess'))
+      })
+    } catch (e) { rej(e) }
+  })
+
+  const cast = async () => {
+    const v = vid()
+    try {
+      if (v?.remote?.prompt) {
+        await Promise.race([
+          v.remote.prompt(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000)),
+        ])
+        return
+      }
+    } catch (e) {}
+    const stream = urlCast()
+    if (!stream) { st('Putar video dulu sebelum cast.'); return }
+    try {
+      await keChromecast(stream, title)
+      st('Casting ke TV...')
+      return
+    } catch (e) {
+      if (e?.byUser) return
+    }
+    if (/Android/i.test(navigator.userAgent)) {
+      location.href = 'intent://' + stream.replace(/^https?:\/\//, '') +
+        '#Intent;scheme=https;type=video/*;package=org.videolan.vlc;S.browser_fallback_url=' +
+        encodeURIComponent(stream) + ';end'
+      st('Membuka VLC...')
+      return
+    }
+    try { await navigator.clipboard.writeText(stream); st('Link streaming disalin — tempel di VLC / MX Player / TV.') }
+    catch (e2) { prompt('Salin link streaming:', stream) }
+  }
+
+  const unduh = async () => {
+    const v = vid()
+    const d = dataRef.current
+    // Mode seeks: ambil link MP4 asli via API download (kayak cleanplayer)
+    if (mode === 'seeks' && d.meta && d.seeksId) {
+      st('Menyiapkan link download...')
+      try {
+        const r = await fetch(`https://ps21.seeks.cloud/api/v1/download?id=${encodeURIComponent(d.seeksId)}&w=800&h=600&r=`)
+        const hex = (await r.text()).trim()
+        const data = new Uint8Array(hex.match(/[\da-f]{2}/gi).map((x) => parseInt(x, 16)))
+        const te = new TextEncoder()
+        const key = await crypto.subtle.importKey('raw', te.encode(SKEY), { name: 'AES-CBC' }, false, ['decrypt'])
+        const pt = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: te.encode(SIV) }, key, data)
+        const j = JSON.parse(new TextDecoder().decode(pt))
+        if (!j.mp4) { st('Video ini tak ada file download.'); return }
+        const url = d.proxy + encodeURIComponent(j.mp4)
+        try { await navigator.clipboard.writeText(url) } catch (e) {}
+        window.open(url, '_blank')
+        st('Download dibuka di tab baru. Link disalin — pakai ADM bila gagal.')
+      } catch (e) { st('Download gagal: ' + e.message) }
+      return
+    }
+    // Abyss / langsung: unduh yang sedang diputar (link absolut + tersalin)
+    const u = v?.src || v?.currentSrc
+    if (u && u.startsWith('http')) {
+      try { await navigator.clipboard.writeText(u) } catch (e) {}
+      window.open(u, '_blank')
+      st('Download dibuka di tab baru. Link disalin — pakai ADM bila gagal.')
+    } else st('Putar video dulu sebelum download.')
   }
 
   const toggleCC = () => {
@@ -224,7 +334,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
     const meta = await metaSeeks(id)
     const master = meta.cfNative || meta.source
     if (!master) { st('Tidak ada stream untuk ID ini.'); return }
-    dataRef.current = { levels: [], proxy: px(), meta, abyss: [] }
+    dataRef.current = { levels: [], proxy: px(), meta, abyss: [], seeksId: id }
     st('Token OK — memuat kualitas...')
     const rm = await fetch(master)
     if (!rm.ok) throw new Error('playlist mati (' + rm.status + ')')
@@ -473,6 +583,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={waktu_}>{fmt(waktu.cur)} / {fmt(waktu.dur)}</span>
             <span style={{ flex: 1 }} />
+            <button onClick={cast} style={tbtn} title="Cast ke TV"><Ikon nama="cast" size={22} /></button>
             <button onClick={unduh} style={tbtn} title="Download"><Ikon nama="unduh" size={22} /></button>
             <button onClick={fs} style={tbtn} title="Fullscreen"><Ikon nama="layar" size={22} /></button>
           </div>
