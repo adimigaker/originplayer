@@ -6,6 +6,16 @@ export const dynamic = 'force-dynamic'
 // GET /api/tmdb?search=naruto&media=tv
 const IMG = 'https://image.tmdb.org/t/p/'
 
+function durasi(media, d) {
+  if (media === 'tv') {
+    const bagian = []
+    if (d.episode_run_time && d.episode_run_time[0]) bagian.push(d.episode_run_time[0] + ' min/ep')
+    if (d.number_of_seasons) bagian.push(d.number_of_seasons + ' season' + (d.number_of_seasons > 1 ? 's' : ''))
+    return bagian.join(' / ') || null
+  }
+  return d.runtime ? d.runtime + ' min' : null
+}
+
 function ringkas(media, d) {
   const judul = d.title || d.name || ''
   const tgl = d.release_date || d.first_air_date || ''
@@ -17,6 +27,7 @@ function ringkas(media, d) {
     poster: d.poster_path ? IMG + 'w500' + d.poster_path : null,
     backdrop: d.backdrop_path ? IMG + 'original' + d.backdrop_path : null,
     synopsis: d.overview || null,
+    duration: durasi(media, d),
     rating: d.vote_average ? Math.round(d.vote_average * 10) / 10 : null,
     imdb_id: null,
   }
