@@ -77,6 +77,13 @@ export async function GET(request) {
       const isTv = !(found.movie_results || [])[0] && !!(found.tv_results || [])[0]
       const det = await get(`/${isTv ? 'tv' : 'movie'}/${hit.id}?language=id-ID&append_to_response=credits,external_ids`)
       const out = ringkas(isTv ? 'tv' : 'movie', det)
+      // Fallback: kalau sinopsis id-ID kosong, ambil versi English
+      if (!out.synopsis) {
+        try {
+          const en = await get(`/${isTv ? 'tv' : 'movie'}/${hit.id}?language=en-US`)
+          out.synopsis = en.overview || null
+        } catch { /* biarkan null */ }
+      }
       out.imdb_id = m[0]
       out.genre = (det.genres || []).map((g) => g.name).join(', ') || null
       out.cast = ((det.credits || {}).cast || []).slice(0, 8).map((c) => c.name).join(', ') || null
@@ -88,6 +95,13 @@ export async function GET(request) {
     if (tmdb) {
       const det = await get(`/${media}/${tmdb}?language=id-ID&append_to_response=credits,external_ids`)
       const out = ringkas(media, det)
+      // Fallback: kalau sinopsis id-ID kosong, ambil versi English
+      if (!out.synopsis) {
+        try {
+          const en = await get(`/${media}/${tmdb}?language=en-US`)
+          out.synopsis = en.overview || null
+        } catch { /* biarkan null */ }
+      }
       out.imdb_id = (det.external_ids || {}).imdb_id || null
       out.genre = (det.genres || []).map((g) => g.name).join(', ') || null
       out.cast = ((det.credits || {}).cast || []).slice(0, 8).map((c) => c.name).join(', ') || null
