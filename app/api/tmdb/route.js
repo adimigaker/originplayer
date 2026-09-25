@@ -22,14 +22,23 @@ function ringkas(media, d) {
   }
 }
 
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+  }
+}
+
 export async function GET(request) {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders() })
+  }
   const KEY = process.env.TMDB_API_KEY
 
   if (!KEY) {
-    return Response.json(
-      { error: 'TMDB_API_KEY belum dipasang di env.' },
-      { status: 501 }
-    )
+    return new Response(JSON.stringify({ error: 'TMDB_API_KEY belum dipasang di env.' }), { status: 501, headers: corsHeaders() })
   }
 
   const { searchParams } = new URL(request.url)
@@ -50,10 +59,10 @@ export async function GET(request) {
     // 1. Dari URL IMDb (tt...) — TMDB find
     if (imdb) {
       const m = String(imdb).match(/tt\d+/)
-      if (!m) return Response.json({ error: 'ID IMDb tidak ketemu.' }, { status: 400 })
+      if (!m) return new Response(JSON.stringify({ error: 'ID IMDb tidak ketemu.' }), { status: 400, headers: corsHeaders() })
       const found = await get(`/find/${m[0]}?external_source=imdb_id&language=id-ID`)
       const hit = (found.movie_results || [])[0] || (found.tv_results || [])[0]
-      if (!hit) return Response.json({ error: 'Tidak ketemu di TMDB.' }, { status: 404 })
+      if (!hit) return new Response(JSON.stringify({ error: 'Tidak ketemu di TMDB.' }), { status: 404, headers: corsHeaders() })
       const isTv = !(found.movie_results || [])[0] && !!(found.tv_results || [])[0]
       const det = await get(`/${isTv ? 'tv' : 'movie'}/${hit.id}?language=id-ID&append_to_response=credits,external_ids`)
       const out = ringkas(isTv ? 'tv' : 'movie', det)
@@ -61,7 +70,7 @@ export async function GET(request) {
       out.genre = (det.genres || []).map((g) => g.name).join(', ') || null
       out.cast = ((det.credits || {}).cast || []).slice(0, 8).map((c) => c.name).join(', ') || null
       out.director = ((det.credits || {}).crew || []).find((c) => c.job === 'Director')?.name || null
-      return Response.json(out)
+      return new Response(JSON.stringify(out), { headers: corsHeaders() })
     }
 
     // 2. Dari ID TMDB langsung
@@ -72,19 +81,19 @@ export async function GET(request) {
       out.genre = (det.genres || []).map((g) => g.name).join(', ') || null
       out.cast = ((det.credits || {}).cast || []).slice(0, 8).map((c) => c.name).join(', ') || null
       out.director = ((det.credits || {}).crew || []).find((c) => c.job === 'Director')?.name || null
-      return Response.json(out)
+      return new Response(JSON.stringify(out), { headers: corsHeaders() })
     }
 
     // 3. Cari judul (buat yang cuma ingat nama)
     if (q) {
       const res = await get(`/search/${media}?query=${encodeURIComponent(q)}&language=id-ID&page=1`)
-      return Response.json(
+      return new Response(JSON.stringify(
         (res.results || []).slice(0, 8).map((d) => ringkas(media, d))
-      )
+      ), { headers: corsHeaders() })
     }
 
-    return Response.json({ error: 'Kasih imdb= / tmdb= / search=.' }, { status: 400 })
+    return new Response(JSON.stringify({ error: 'Kasih imdb= / tmdb= / search=.' }), { status: 400, headers: corsHeaders() })
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 502 })
+    return new Response(JSON.stringify({ error: e.message }), { status: 502, headers: corsHeaders() })
   }
 }
