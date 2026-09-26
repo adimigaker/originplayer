@@ -1,16 +1,21 @@
 'use client'
 
 import { use, useState, useEffect } from 'react'
+import VideoPlayer from '@/components/playlists/VideoPlayer'
+import { tunnelBase } from '@/lib/playlist'
 
-export default function WatchMoviePage({ params }) {
+export default function WatchMovieEmbedPage({ params }) {
   const { id } = use(params)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [tunnel, setTunnel] = useState('')
 
   useEffect(() => {
     const init = async () => {
       try {
         setLoading(true)
+        setTunnel(await tunnelBase())
+
         const resMeta = await fetch(`/api/tmdb?tmdb=${id}&media=movie`)
         const meta = await resMeta.json()
 
@@ -27,26 +32,35 @@ export default function WatchMoviePage({ params }) {
     init()
   }, [id])
 
-  if (loading) return <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center text-slate-500">Memuat...</div>
-  if (!data) return <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center text-slate-500">Error/Data tidak ada.</div>
+  if (loading) {
+    return (
+      <div className="w-screen h-screen bg-black flex items-center justify-center text-slate-500 text-sm">
+        Memuat...
+      </div>
+    )
+  }
+
+  if (!data || !data.streams.length) {
+    return (
+      <div className="w-screen h-screen bg-black flex items-center justify-center text-slate-500 text-sm flex-col gap-2">
+        <p>Stream tidak tersedia untuk film ini</p>
+        <a href={`/admin/edit/${id}`} target="_blank" className="text-indigo-400 underline text-xs">Kelola Admin</a>
+      </div>
+    )
+  }
 
   const primary = data.streams[0]
+  const title = data.meta.title || 'Movie'
 
   return (
-    <div className="min-h-screen bg-[#0b0f1a] text-white">
-      <div className="max-w-5xl mx-auto p-4">
-        <h1 className="text-xl font-bold mb-1">{data.meta.title || 'Movie'}</h1>
-
-        <div className="aspect-video bg-black rounded-xl overflow-hidden border border-white/5">
-          {primary ? (
-            <video src={primary.stream_url} controls className="w-full h-full" autoPlay />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500">
-              <p>Tidak ada stream tersedia</p>
-              <a href={`/admin/edit/${id}`} className="mt-2 text-indigo-400 underline">Kelola</a>
-            </div>
-          )}
-        </div>
+    <div className="w-screen h-screen bg-black overflow-hidden flex items-center justify-center">
+      <div className="w-full h-full">
+        <VideoPlayer 
+          embedUrl={primary.stream_url} 
+          title={title} 
+          autoPutar={true} 
+          tunnel={tunnel} 
+        />
       </div>
     </div>
   )

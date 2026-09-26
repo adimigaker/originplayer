@@ -1,16 +1,21 @@
 'use client'
 
 import { use, useState, useEffect } from 'react'
+import VideoPlayer from '@/components/playlists/VideoPlayer'
+import { tunnelBase } from '@/lib/playlist'
 
-export default function WatchTVPage({ params }) {
+export default function WatchTVEmbedPage({ params }) {
   const { id, season, ep } = use(params)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [tunnel, setTunnel] = useState('')
 
   useEffect(() => {
     const init = async () => {
       try {
         setLoading(true)
+        setTunnel(await tunnelBase())
+        
         const resMeta = await fetch(`/api/tmdb?tmdb=${id}&media=tv`)
         const meta = await resMeta.json()
 
@@ -27,31 +32,35 @@ export default function WatchTVPage({ params }) {
     init()
   }, [id, season, ep])
 
-  if (loading) return <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center text-slate-500">Memuat pemutar...</div>
-  if (!data) return <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center text-slate-500">Gagal memuat data.</div>
+  if (loading) {
+    return (
+      <div className="w-screen h-screen bg-black flex items-center justify-center text-slate-500 text-sm">
+        Memuat...
+      </div>
+    )
+  }
+
+  if (!data || !data.streams.length) {
+    return (
+      <div className="w-screen h-screen bg-black flex items-center justify-center text-slate-500 text-sm flex-col gap-2">
+        <p>Stream tidak tersedia untuk S{season}E{ep}</p>
+        <a href={`/admin/edit/${id}`} target="_blank" className="text-indigo-400 underline text-xs">Kelola Admin</a>
+      </div>
+    )
+  }
 
   const primary = data.streams[0]
+  const title = `${data.meta.name || 'Series'} - S${season}E${ep}`
 
   return (
-    <div className="min-h-screen bg-[#0b0f1a] text-white">
-      <div className="max-w-5xl mx-auto p-4">
-        <h1 className="text-xl font-bold mb-1">{data.meta.name || 'Series'}</h1>
-        <p className="text-slate-400 text-sm mb-4">Season {season} Episode {ep}</p>
-
-        <div className="aspect-video bg-black rounded-xl overflow-hidden border border-white/5 shadow-2xl relative">
-          {primary ? (
-            primary.stream_url.includes('abyssplayer.com') || primary.stream_url.includes('embed') ? (
-              <iframe src={primary.stream_url} className="w-full h-full border-0" allowFullScreen />
-            ) : (
-              <video src={primary.stream_url} controls className="w-full h-full" autoPlay />
-            )
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500">
-              <p className="mb-2">Tidak ada stream tersedia untuk episode ini</p>
-              <a href={`/admin/edit/${id}`} className="bg-indigo-600 px-4 py-2 rounded-lg text-white text-xs">Kelola di Admin</a>
-            </div>
-          )}
-        </div>
+    <div className="w-screen h-screen bg-black overflow-hidden flex items-center justify-center">
+      <div className="w-full h-full">
+        <VideoPlayer 
+          embedUrl={primary.stream_url} 
+          title={title} 
+          autoPutar={true} 
+          tunnel={tunnel} 
+        />
       </div>
     </div>
   )
