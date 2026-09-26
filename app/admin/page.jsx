@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export default function AdminPage() {
   const [items, setItems] = useState([])
@@ -10,6 +10,8 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [selectedType, setSelectedType] = useState('series')
+  const router = useRouter()
 
   useEffect(() => {
     fetchCatalog()
@@ -33,7 +35,8 @@ export default function AdminPage() {
     if (!searchQuery) return
     setSearching(true)
     try {
-      const res = await fetch(`/api/tmdb?search=${encodeURIComponent(searchQuery)}&media=tv`)
+      const mediaType = selectedType === 'movie' ? 'movie' : 'tv'
+      const res = await fetch(`/api/tmdb?search=${encodeURIComponent(searchQuery)}&media=${mediaType}`)
       const data = await res.json()
       setSearchResults(Array.isArray(data) ? data : [])
     } catch (e) {
@@ -50,7 +53,7 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tmdb_id: tmdbData.tmdb_id,
-          type: tmdbData.media,
+          type: tmdbData.media || selectedType,
           title: tmdbData.title,
           slug: tmdbData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           poster: tmdbData.poster,
@@ -61,7 +64,8 @@ export default function AdminPage() {
         })
       })
       setShowModal(false)
-      fetchCatalog()
+      // Arahkan ke halaman Editor khusus ini
+      router.push(`/admin/edit/${tmdbData.tmdb_id}`)
     } catch (e) {
       alert('Gagal menambah konten: ' + e.message)
     }
@@ -88,7 +92,7 @@ export default function AdminPage() {
               <h1 className="text-xl font-bold tracking-tight">Origin<span className="text-indigo-400">Admin</span></h1>
             </div>
             <div className="flex items-center gap-4">
-              <Link href="/" className="text-sm text-slate-400 hover:text-white transition">Lihat Situs</Link>
+              <button onClick={() => router.push('/')} className="text-sm text-slate-400 hover:text-white transition">Lihat Situs</button>
               <button 
                 onClick={() => setShowModal(true)}
                 className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-lg shadow-indigo-500/25"
@@ -141,8 +145,7 @@ export default function AdminPage() {
                         <span className="material-icons text-sm">delete</span> Hapus
                      </button>
                      <a 
-                        href={item.type === 'series' ? `/tv/${item.tmdb_id}` : `/movie/${item.tmdb_id}`}
-                        target="_blank"
+                        href={`/admin/edit/${item.tmdb_id}`}
                         className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-lg transition-all text-center text-xs font-bold shadow-lg shadow-indigo-500/20"
                      >
                         Kelola Stream
@@ -171,6 +174,22 @@ export default function AdminPage() {
               </div>
               <button onClick={() => setShowModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition">
                 <span className="material-icons text-lg">close</span>
+              </button>
+            </div>
+
+            {/* Jenis Konten Selector */}
+            <div className="px-6 pt-4 flex gap-3">
+              <button
+                onClick={() => setSelectedType('series')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${selectedType === 'series' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+              >
+                TV Series
+              </button>
+              <button
+                onClick={() => setSelectedType('movie')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${selectedType === 'movie' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+              >
+                Movie
               </button>
             </div>
             
@@ -205,7 +224,7 @@ export default function AdminPage() {
                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <h4 className="font-bold text-sm truncate pr-2">{res.title}</h4>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">{res.media}</span>
+                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">{res.media || selectedType}</span>
                         <span className="text-slate-500 text-[10px]">•</span>
                         <span className="text-slate-400 text-[10px] font-medium">{res.year}</span>
                       </div>
