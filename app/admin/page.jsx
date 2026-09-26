@@ -60,7 +60,7 @@ export default function AdminPage() {
           tmdb_id: tmdbData.tmdb_id,
           type: tmdbData.media || selectedType,
           title: tmdbData.title,
-          slug: tmdbData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          slug: tmdbData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `tmdb-${tmdbData.tmdb_id}`,
           poster: tmdbData.poster,
           backdrop: tmdbData.backdrop,
           synopsis: tmdbData.synopsis,

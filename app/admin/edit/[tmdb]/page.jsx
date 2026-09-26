@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { use, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 const inputCls = 'w-full bg-slate-800/60 border border-white/10 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm text-white outline-none transition'
 const btnCls = 'px-4 py-2 rounded-xl text-xs font-bold transition'
 
 export default function EditTitle({ params }) {
-  const { tmdb: tmdbId } = params
+  const resolvedParams = use(params)
+  const { tmdb: tmdbId } = resolvedParams
   const router = useRouter()
   const [title, setTitle] = useState(null)
   const [meta, setMeta] = useState(null)

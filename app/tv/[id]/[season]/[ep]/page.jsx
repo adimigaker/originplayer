@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function WatchTVPage({ params }) {
-  const { id, season, ep } = params
+  const { id, season, ep } = use(params)
   const [meta, setMeta] = useState(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
