@@ -53,8 +53,6 @@ export default function EditTitle({ params }) {
   const [err, setErr] = useState('')
   const [notice, setNotice] = useState('')
 
-  useEffect(() => { bootstrap() }, [tmdbId])
-
   async function bootstrap() {
     setLoading(true)
     try {
@@ -64,15 +62,16 @@ export default function EditTitle({ params }) {
       if (!t) { setNotFoundCat(true) }
       else {
         setTitle(t)
-        // Auto: movie → stream tab, series → episode tab
-        const tabAwal = t.type === 'series' ? 'episode' : 'stream'
-        if (tabAwal) setTab(tabAwal)
+        setTab(t.type === 'series' ? 'episode' : 'stream')
       }
       // metadata tambahan dari TMDB
       const media = t?.type === 'movie' ? 'movie' : 'tv'
       const m = await fetch(`/api/tmdb?tmdb=${tmdbId}&media=${media}`)
       if (m.ok) setMeta(await m.json())
-      if (t && t.type !== 'series') await loadStreams(t.id)
+      if (t) {
+        if (t.type === 'series') await loadSeasons(t.id)
+        else await loadStreams(t.id)
+      }
     } finally {
       setLoading(false)
     }
@@ -86,24 +85,24 @@ export default function EditTitle({ params }) {
     setStreams(Array.isArray(d) ? d : [])
   }
 
-  async function loadSeasons() {
+  async function loadSeasons(titleId) {
     const r = await fetch(`/api/tmdb/episodes?tmdb=${tmdbId}`)
     const d = await r.json()
     if (d.seasons) {
       setSeasons(d.seasons)
       const first = d.seasons[0]?.season || 1
       setSeason(first)
-      loadEpisodes(first)
+      loadEpisodes(first, titleId)
     } else setErr(d.error || 'Gagal memuat daftar season.')
   }
 
-  async function loadEpisodes(sn) {
+  async function loadEpisodes(sn, titleId) {
     setFetchingEps(true)
     const r = await fetch(`/api/tmdb/episodes?tmdb=${tmdbId}&season=${sn}`)
     const d = await r.json()
     if (!d.episodes) { setEps([]); setErr(d.error || 'Gagal memuat episode.') }
     else {
-      const r2 = await fetch(`/api/catalog/${title.id}/episodes`)
+      const r2 = await fetch(`/api/catalog/${titleId || title?.id}/episodes`)
       const saved = await r2.json()
       const smap = Array.isArray(saved) ? saved : []
       setEps(d.episodes.map((e) => {
@@ -113,11 +112,6 @@ export default function EditTitle({ params }) {
     }
     setFetchingEps(false)
   }
-
-  useEffect(() => {
-    if (title && title.type === 'series' && tab === 'episode' && seasons.length === 0) loadSeasons()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, tab])
 
   async function saveStream(episodeId = null) {
     if (!fUrl.trim()) { setErr('Isi URL stream dulu.'); return }
@@ -186,6 +180,17 @@ export default function EditTitle({ params }) {
       loadEpisodes(season)
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
+
+  useEffect(() => {
+    // Pola suspense-lokal: jangan setState sinkron di body effect.
+    let hidup = true
+    ;(async () => {
+      await Promise.resolve()
+      if (hidup) bootstrap()
+    })()
+    return () => { hidup = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tmdbId])
 
   if (loading) return (
     <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center text-slate-500">Memuat editor...</div>
