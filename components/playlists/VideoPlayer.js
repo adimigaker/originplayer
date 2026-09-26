@@ -569,11 +569,22 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
           <button onClick={() => { setCfgBuka(!cfgBuka); tampilUI() }} style={tbtn} title="Setelan"><Ikon nama="setelan" size={22} /></button>
         </div>
 
-        {/* tombol putar besar */}
-        {jeda && (
-          <div onClick={(e) => { e.stopPropagation(); putarJeda() }}
-            style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,.25)', zIndex: 5 }}>
-            <span style={bigBtn}><Ikon nama={jalan ? 'jeda' : 'putar'} size={40} /></span>
+        {/* tombol putar besar / status overlay */}
+        {(jeda || !status.includes('OK')) && (
+          <div onClick={(e) => { e.stopPropagation(); if (status.includes('OK') || status.includes('Siap')) putarJeda() }}
+            style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,.4)', zIndex: 5, padding: '0 20px' }}>
+            
+            {/* Tampilkan pesan status jika belum siap/error */}
+            {(!status.includes('OK') && !status.includes('Siap')) && (
+              <div style={{ color: '#fff', fontSize: 13, textAlign: 'center', marginBottom: 12, background: 'rgba(0,0,0,.6)', padding: '6px 12px', borderRadius: 8 }}>
+                {status}
+              </div>
+            )}
+
+            {/* Tombol putar hanya muncul jika sudah siap */}
+            {(status.includes('OK') || status.includes('Siap')) && (
+              <span style={bigBtn}><Ikon nama={jalan ? 'jeda' : 'putar'} size={40} /></span>
+            )}
           </div>
         )}
 
