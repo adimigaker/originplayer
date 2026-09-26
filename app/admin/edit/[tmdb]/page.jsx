@@ -46,9 +46,13 @@ export default function EditTitle({ params }) {
   const [eps, setEps] = useState([])
   const [fetchingEps, setFetchingEps] = useState(false)
 
-  // form tambah stream
+  // form tambah stream (movie)
   const [fServer, setFServer] = useState('Abyss Utama')
   const [fUrl, setFUrl] = useState('')
+  // draft per-episode: { 'S1E2': { server, url } } — tiap episode punya kolom sendiri
+  const [drafts, setDrafts] = useState({})
+  const dKey = (e) => `S${e.season}E${e.episode}`
+  const setDraft = (key, field, val) => setDrafts((d) => ({ ...d, [key]: { server: 'Abyss Utama', url: '', ...(d[key] || {}), [field]: val } }))
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const [notice, setNotice] = useState('')
@@ -113,11 +117,13 @@ export default function EditTitle({ params }) {
     setFetchingEps(false)
   }
 
-  async function saveStream(episodeId = null) {
-    if (!fUrl.trim()) { setErr('Isi URL stream dulu.'); return }
+  async function saveStream(episodeId = null, nilai = null) {
+    const server = nilai?.server ?? fServer
+    const url = (nilai?.url ?? fUrl).trim()
+    if (!url) { setErr('Isi URL stream dulu.'); return }
     setSaving(true); setErr(''); setNotice('')
     try {
-      const payload = { server_name: fServer, stream_url: fUrl.trim(), episode_id: episodeId || null }
+      const payload = { server_name: server, stream_url: url, episode_id: episodeId || null }
       const r = await fetch(`/api/catalog/${title.id}/streams`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -126,9 +132,14 @@ export default function EditTitle({ params }) {
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Gagal menyimpan')
       setNotice('✓ Server stream tersimpan.')
-      setFUrl('')
-      setFServer('Abyss Utama')
-      if (title.type === 'series') loadEpisodes(season)
+      if (episodeId) {
+        // Kosongkan draft episode yang baru saja disimpan
+        if (nilai?.key) setDrafts((d) => { const c = { ...d }; delete c[nilai.key]; return c })
+      } else {
+        setFUrl('')
+        setFServer('Abyss Utama')
+      }
+      if (title.type === 'series') loadEpisodes(season, title.id)
       else loadStreams(title.id)
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
@@ -247,7 +258,7 @@ export default function EditTitle({ params }) {
             <div className="flex-1">
               <h1 className="font-bold leading-tight truncate max-w-[60vw] text-sm">{judul}</h1>
               <p className="text-[11px] text-slate-500">
-                {isSeries ? `TV Series • S${season} • TMDB ${tmdbId}` : 'Movie'} • TMDB {tmdbId}
+                {isSeries ? `TV Series • S${season}` : 'Movie'} • TMDB {tmdbId}
               </p>
             </div>
             {title && (
@@ -369,7 +380,9 @@ export default function EditTitle({ params }) {
               <div className="flex items-center justify-center py-16 text-slate-500 text-sm">Memuat episode...</div>
             ) : (
               <div className="space-y-3">
-                {eps.map((e) => (
+                {eps.map((e) => {
+                  const draft = drafts[dKey(e)] || { server: '', url: '' }
+                  return (
                   <div key={e.episode} className="bg-[#161b2c] border border-white/5 rounded-2xl overflow-hidden">
                     <div className="flex gap-4 p-4">
                       <div className="w-28 shrink-0 rounded-lg overflow-hidden bg-slate-800 aspect-video">
@@ -407,11 +420,11 @@ export default function EditTitle({ params }) {
                       {(e.saved?.streams || []).length === 0 && <p className="text-[11px] text-slate-600 mb-2">Belum ada server untuk episode ini.</p>}
 
                       <div className="flex gap-2 mt-2">
-                        <input placeholder="Nama server (mis. Abyss Utama)" value={fServer} onChange={(ev) => setFServer(ev.target.value)} className={inputCls + ' flex-1'} />
-                        <input placeholder="URL stream episode ini" value={fUrl} onChange={(ev) => setFUrl(ev.target.value)} className={inputCls + ' flex-[2]'} />
+                        <input placeholder="Nama server" value={draft.server} onChange={(ev) => { setDraft(dKey(e), 'server', ev.target.value) }} className={inputCls + ' flex-1'} />
+                        <input placeholder="URL stream" value={draft.url} onChange={(ev) => { setDraft(dKey(e), 'url', ev.target.value) }} className={inputCls + ' flex-[2]'} />
                         <button
                           onClick={async () => {
-                            if (!fUrl.trim()) { setErr('Isi URL stream dulu.'); return }
+                            if (!draft.url.trim()) { setErr('Isi URL stream dulu.'); return }
                             setSaving(true); setErr(''); setNotice('')
                             try {
                               let epId = e.saved?.id
@@ -425,7 +438,7 @@ export default function EditTitle({ params }) {
                                 if (!rr.ok) throw new Error(dd.error || 'Gagal simpan episode')
                                 epId = dd.id
                               }
-                              await saveStream(epId)
+                              await saveStream(epId, { server: draft.server || 'Abyss Utama', url: draft.url, key: dKey(e) })
                             } catch (ex) { setErr(ex.message); setSaving(false) }
                           }}
                           disabled={saving}
@@ -434,7 +447,8 @@ export default function EditTitle({ params }) {
                       </div>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
