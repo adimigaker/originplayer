@@ -11,6 +11,8 @@ export default function AdminPage() {
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [selectedType, setSelectedType] = useState('series')
+  const [saving, setSaving] = useState(false)
+  const [saveErr, setSaveErr] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -47,8 +49,10 @@ export default function AdminPage() {
   }
 
   async function addTitle(tmdbData) {
+    setSaving(true)
+    setSaveErr('')
     try {
-      await fetch('/api/catalog', {
+      const res = await fetch('/api/catalog', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -63,11 +67,17 @@ export default function AdminPage() {
           rating: tmdbData.rating,
         })
       })
+      const d = await res.json()
+      // PENTING: hanya redirect kalau API benar-benar sukses
+      if (!res.ok) throw new Error(d.error || `Server menolak (${res.status})`)
       setShowModal(false)
-      // Arahkan ke halaman Editor khusus ini
+      fetchCatalog()
       router.push(`/admin/edit/${tmdbData.tmdb_id}`)
     } catch (e) {
+      setSaveErr('Gagal menambah konten: ' + e.message)
       alert('Gagal menambah konten: ' + e.message)
+    } finally {
+      setSaving(false)
     }
   }
 
