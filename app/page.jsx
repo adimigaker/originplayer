@@ -27,9 +27,6 @@ export default function HomePage() {
             </h1>
             <p className="text-slate-400 text-xs mt-1">Katalog Media & Player Mandiri</p>
           </div>
-          <Link href="/admin" className="text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300">
-            Admin Panel
-          </Link>
         </header>
 
         {loading ? (
