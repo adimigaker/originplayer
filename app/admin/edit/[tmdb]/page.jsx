@@ -168,10 +168,32 @@ export default function EditTitle({ params }) {
             <button onClick={() => router.push('/admin')} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition">
               <span className="material-icons text-lg">arrow_back</span>
             </button>
-            <div>
-              <h1 className="font-bold leading-tight truncate max-w-[50vw]">{judul}</h1>
-              <p className="text-[11px] text-slate-500">{isSeries ? 'TV Series' : 'Movie'} • TMDB {tmdbId}</p>
+            <div className="flex-1">
+              <h1 className="font-bold leading-tight truncate max-w-[60vw] text-sm">{judul}</h1>
+              <p className="text-[11px] text-slate-500">
+                {isSeries ? `TV Series • S{season}` : 'Movie'} • TMDB {tmdbId}
+              </p>
             </div>
+            {title && (
+              <button
+                onClick={async () => {
+                  if (!confirm(`Hapus "${judul}" dari katalog secara permanen?`)) return
+                  try {
+                    const r = await fetch(`/api/catalog/${title.id}`, { method: 'DELETE' })
+                    if (!r.ok) throw new Error('Server menolak')
+                    toast.success(`${judul} dihapus`)
+                    router.push('/admin')
+                  } catch (e) {
+                    toast.error('Gagal menghapus: ' + e.message)
+                  }
+                }}
+                className="shrink-0 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-1.5 text-xs font-medium transition flex items-center gap-1"
+                title="Hapus konten ini"
+              >
+                <span className="material-icons text-sm">delete</span>
+                <span className="hidden sm:inline">Hapus</span>
+              </button>
+            )}
           </div>
           <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${isSeries ? 'bg-indigo-500/20 text-indigo-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
             {isSeries ? 'Series' : 'Movie'}
@@ -216,12 +238,16 @@ export default function EditTitle({ params }) {
         {tab === 'stream' && (
           <div className="bg-[#161b2c] border border-white/5 rounded-2xl p-5">
             <p className="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wider">Tambah Server Stream</p>
+            <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
+              URL stream = link video asal (abyss / m3u8 / MP4). Nama server hanya label, mis. &quot;Abyss Utama&quot;. Prio 1 = dipakai duluan saat ada server lain.
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
               <input placeholder="Nama server (mis. Abyss Utama)" value={fServer} onChange={(e) => setFServer(e.target.value)} className={inputCls} />
               <input placeholder="URL stream / slug abyss" value={fUrl} onChange={(e) => setFUrl(e.target.value)} className={inputCls + ' sm:col-span-2'} />
             </div>
             <div className="flex items-center gap-3">
-              <input type="number" value={fPriority} onChange={(e) => setFPriority(Number(e.target.value))} className={inputCls + ' w-24'} title="Priority (1 = utama)" />
+              <span className="text-[10px] text-slate-500 font-bold uppercase shrink-0">Prio</span>
+              <input type="number" value={fPriority} onChange={(e) => setFPriority(Number(e.target.value))} className={inputCls + ' w-20'} title="Priority (1 = utama)" />
               <button onClick={() => saveStream(title ? title.id : null)} disabled={saving || !title}
                 className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition">
                 {saving ? 'Menyimpan...' : 'Simpan Server'}
@@ -301,8 +327,8 @@ export default function EditTitle({ params }) {
                       {(e.saved?.streams || []).length === 0 && <p className="text-[11px] text-slate-600 mb-2">Belum ada server untuk episode ini.</p>}
 
                       <div className="flex gap-2 mt-2">
-                        <input placeholder="Nama server" value={fServer} onChange={(ev) => setFServer(ev.target.value)} className={inputCls + ' flex-1'} />
-                        <input placeholder="URL stream" value={fUrl} onChange={(ev) => setFUrl(ev.target.value)} className={inputCls + ' flex-[2]'} />
+                        <input placeholder="Nama server (mis. Abyss Utama)" value={fServer} onChange={(ev) => setFServer(ev.target.value)} className={inputCls + ' flex-1'} />
+                        <input placeholder="URL stream episode ini" value={fUrl} onChange={(ev) => setFUrl(ev.target.value)} className={inputCls + ' flex-[2]'} />
                         <button
                           onClick={async () => {
                             if (!fUrl.trim()) { setErr('Isi URL stream dulu.'); return }
@@ -332,30 +358,6 @@ export default function EditTitle({ params }) {
                 ))}
               </div>
             )}
-          </div>
-        )}
-
-        {/* Zona Berbahaya — hapus konten dari katalog */}
-        {title && (
-          <div className="mt-8 border-t border-red-500/20 pt-6">
-            <p className="text-xs text-slate-500 mb-3">Zona Berbahaya</p>
-            <button
-              onClick={async () => {
-                if (!confirm(`Hapus "${judul}" dari katalog secara permanen?`)) return
-                try {
-                  const r = await fetch(`/api/catalog/${title.id}`, { method: 'DELETE' })
-                  if (!r.ok) throw new Error('Server menolak')
-                  toast.success(`${judul} dihapus dari katalog`)
-                  router.push('/admin')
-                } catch (e) {
-                  toast.error('Gagal menghapus: ' + e.message)
-                }
-              }}
-              className="flex items-center gap-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5 text-sm font-medium transition"
-            >
-              <span className="material-icons text-lg">delete_forever</span>
-              Hapus "{judul}" dari katalog
-            </button>
           </div>
         )}
       </main>
