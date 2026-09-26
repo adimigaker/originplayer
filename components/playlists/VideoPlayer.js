@@ -576,18 +576,18 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
         {/* tombol putar besar / status overlay */}
         {(jeda || !status.includes('OK')) && (
           <div onClick={(e) => { e.stopPropagation(); if (status.includes('OK') || status.includes('Siap')) putarJeda() }}
-            style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,.6)', zIndex: 10, padding: '0 20px' }}>
+            style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,.6)', zIndex: 5, padding: '0 20px' }}>
             
             {/* Status loading/error */}
             {(!status.includes('OK') && !status.includes('Siap')) && (
-              <div style={{ color: '#fff', fontSize: 13, textAlign: 'center', marginBottom: 20, background: 'rgba(0,0,0,.8)', padding: '10px 20px', borderRadius: 12 }}>
+              <div style={{ color: '#fff', fontSize: 13, textAlign: 'center', marginBottom: 20, background: 'rgba(0,0,0,.8)', padding: '10px 20px', borderRadius: 12, pointerEvents: 'auto' }}>
                 {status}
               </div>
             )}
 
             {/* Tombol putar */}
             {(status.includes('OK') || status.includes('Siap')) && (
-              <span style={bigBtn}><Ikon nama={jalan ? 'jeda' : 'putar'} size={40} /></span>
+              <span style={{ ...bigBtn, pointerEvents: 'auto' }}><Ikon nama={jalan ? 'jeda' : 'putar'} size={40} /></span>
             )}
           </div>
         )}
@@ -599,8 +599,8 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
         {/* setelan: bottom sheet + sentuh luar = tutup */}
         {cfgBuka && (
           <>
-            <div onClick={(e) => { e.stopPropagation(); setCfgBuka(false); tampilUI() }} style={sheetBg} />
-            <div style={sheet} onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => { e.stopPropagation(); setCfgBuka(false); tampilUI() }} style={{ ...sheetBg, zIndex: 8 }} />
+            <div style={{ ...sheet, zIndex: 9 }} onClick={(e) => e.stopPropagation()}>
               <div style={sheetGrip} />
               <div style={sheetJudul}>Setelan</div>
               <div style={sheetLbl}>Kualitas</div>
