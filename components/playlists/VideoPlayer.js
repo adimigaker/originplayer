@@ -501,7 +501,11 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
     }
     const onPause = () => { setJalan(false); setJeda(true); setUiSembunyi(false); if (hideTimer.current) clearTimeout(hideTimer.current) }
     const onTime = () => setWaktu({ cur: v.currentTime || 0, dur: v.duration || 0 })
-    const onErr = () => st('Video error — coba kualitas lain.')
+    const onErr = () => {
+      st('Video error — coba kualitas lain.')
+      // Buka bottom sheet agar user bisa ganti kualitas
+      if (kualitas.length > 1) setCfgBuka(true)
+    }
     const onSeek = () => tampilUI()
     v.addEventListener('play', onPlay)
     v.addEventListener('pause', onPause)
@@ -555,7 +559,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
         ref={stageRef}
         className="vp-stage"
         onClick={(e) => { if (e.target.closest('button,select,input')) return; ketuk(e.clientX) }}
-        style={{ position: 'relative', background: '#000', borderRadius: 12, overflow: 'hidden', cursor: uiSembunyi ? 'none' : 'default' }}
+        style={{ position: 'relative', background: '#000', borderRadius: 12, overflow: 'hidden', cursor: uiSembunyi ? 'none' : 'default', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         <video ref={vRef} playsInline style={{ width: '100%', aspectRatio: '16/9', display: 'block', background: '#000' }} />
 
@@ -572,16 +576,16 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
         {/* tombol putar besar / status overlay */}
         {(jeda || !status.includes('OK')) && (
           <div onClick={(e) => { e.stopPropagation(); if (status.includes('OK') || status.includes('Siap')) putarJeda() }}
-            style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,.4)', zIndex: 5, padding: '0 20px' }}>
+            style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,.6)', zIndex: 10, padding: '0 20px' }}>
             
-            {/* Tampilkan pesan status jika belum siap/error */}
+            {/* Status loading/error */}
             {(!status.includes('OK') && !status.includes('Siap')) && (
-              <div style={{ color: '#fff', fontSize: 13, textAlign: 'center', marginBottom: 12, background: 'rgba(0,0,0,.6)', padding: '6px 12px', borderRadius: 8 }}>
+              <div style={{ color: '#fff', fontSize: 13, textAlign: 'center', marginBottom: 20, background: 'rgba(0,0,0,.8)', padding: '10px 20px', borderRadius: 12 }}>
                 {status}
               </div>
             )}
 
-            {/* Tombol putar hanya muncul jika sudah siap */}
+            {/* Tombol putar */}
             {(status.includes('OK') || status.includes('Siap')) && (
               <span style={bigBtn}><Ikon nama={jalan ? 'jeda' : 'putar'} size={40} /></span>
             )}
