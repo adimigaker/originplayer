@@ -1,11 +1,33 @@
 'use client'
 
-import { use, useState, useEffect, useCallback } from 'react'
+import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from '@/components/Toast'
 
 const inputCls = 'w-full bg-slate-800/60 border border-white/10 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm text-white outline-none transition'
 const btnCls = 'px-4 py-2 rounded-xl text-xs font-bold transition'
+
+// Panah reorder SVG
+function Arrows({ idx, total, onMove }) {
+  const up = idx > 0
+  const down = idx < total - 1
+  return (
+    <div className="flex flex-col gap-0.5 shrink-0">
+      <button
+        type="button"
+        onClick={() => onMove(idx, idx - 1)}
+        disabled={!up}
+        className={`material-icons text-base rounded ${up ? 'text-indigo-400 hover:bg-indigo-500/20 cursor-pointer' : 'text-slate-700 cursor-not-allowed'}`}
+      >arrow_upward</button>
+      <button
+        type="button"
+        onClick={() => onMove(idx, idx + 1)}
+        disabled={!down}
+        className={`material-icons text-base rounded ${down ? 'text-indigo-400 hover:bg-indigo-500/20 cursor-pointer' : 'text-slate-700 cursor-not-allowed'}`}
+      >arrow_downward</button>
+    </div>
+  )
+}
 
 export default function EditTitle({ params }) {
   const resolvedParams = use(params)
@@ -14,12 +36,11 @@ export default function EditTitle({ params }) {
   const [title, setTitle] = useState(null)
   const [meta, setMeta] = useState(null)
   const [notFoundCat, setNotFoundCat] = useState(false)
-  const [tab, setTab] = useState('stream')
   const [loading, setLoading] = useState(true)
 
-  // data movie (stream list per judul)
+  // streams
   const [streams, setStreams] = useState([])
-  // data series
+  // series
   const [seasons, setSeasons] = useState([])
   const [season, setSeason] = useState(1)
   const [eps, setEps] = useState([])
@@ -28,8 +49,6 @@ export default function EditTitle({ params }) {
   // form tambah stream
   const [fServer, setFServer] = useState('Abyss Utama')
   const [fUrl, setFUrl] = useState('')
-  const [fPriority, setFPriority] = useState(1)
-  const [fEpisodeId, setFEpisodeId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const [notice, setNotice] = useState('')
@@ -45,7 +64,9 @@ export default function EditTitle({ params }) {
       if (!t) { setNotFoundCat(true) }
       else {
         setTitle(t)
-        if (t.type === 'series') setTab('episode')
+        // Auto: movie → stream tab, series → episode tab
+        const tabAwal = t.type === 'series' ? 'episode' : 'stream'
+        if (tabAwal) setTab(tabAwal)
       }
       // metadata tambahan dari TMDB
       const media = t?.type === 'movie' ? 'movie' : 'tv'
@@ -56,6 +77,8 @@ export default function EditTitle({ params }) {
       setLoading(false)
     }
   }
+
+  const [tab, setTab] = useState('stream')
 
   async function loadStreams(titleId) {
     const r = await fetch(`/api/catalog/${titleId}/streams`)
@@ -80,7 +103,6 @@ export default function EditTitle({ params }) {
     const d = await r.json()
     if (!d.episodes) { setEps([]); setErr(d.error || 'Gagal memuat episode.') }
     else {
-      // Gabung dengan stream yang sudah tersimpan
       const r2 = await fetch(`/api/catalog/${title.id}/episodes`)
       const saved = await r2.json()
       const smap = Array.isArray(saved) ? saved : []
@@ -101,18 +123,17 @@ export default function EditTitle({ params }) {
     if (!fUrl.trim()) { setErr('Isi URL stream dulu.'); return }
     setSaving(true); setErr(''); setNotice('')
     try {
-      let targetEpisodeId = episodeId
-      // Jika di tab episode & belum punya record episode -> buat dulu
-      if (episodeId === undefined) targetEpisodeId = null
+      const payload = { server_name: fServer, stream_url: fUrl.trim(), episode_id: episodeId || null }
       const r = await fetch(`/api/catalog/${title.id}/streams`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ server_name: fServer, stream_url: fUrl.trim(), priority: fPriority, episode_id: targetEpisodeId }),
+        body: JSON.stringify(payload),
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Gagal menyimpan')
       setNotice('✓ Server stream tersimpan.')
       setFUrl('')
+      setFServer('Abyss Utama')
       if (title.type === 'series') loadEpisodes(season)
       else loadStreams(title.id)
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
@@ -125,8 +146,31 @@ export default function EditTitle({ params }) {
     else loadStreams(title.id)
   }
 
+  // Reorder stream (drag-up/down via arrow)
+  async function reorder(idxA, idxB) {
+    if (idxA === idxB) return
+    const order = [...streams]
+    const [pindah] = order.splice(idxA, 1)
+    order.splice(idxB, 0, pindah)
+    // Optimistic UI
+    const baru = order.map((_, i) => ({ ...streams.find((s) => s.id === order[i].id), priority: i + 1 }))
+    setStreams(baru)
+    try {
+      const r = await fetch(`/api/catalog/${title.id}/streams/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: order.map((s) => s.id) }),
+      })
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Gagal reorder') }
+      setNotice('✓ Urutan server diperbarui (server utama dipakai duluan).')
+    } catch (e) {
+      setErr(e.message)
+      // rollback UI
+      loadStreams(title.id)
+    }
+  }
+
   async function autoAddEpisodes() {
-    // Simpan seluruh episode season aktif ke DB (opsional, mempercepat pengelolaan)
     setSaving(true); setErr(''); setNotice('')
     try {
       let count = 0
@@ -219,11 +263,13 @@ export default function EditTitle({ params }) {
           </details>
         </div>
 
-        {/* Tab */}
+        {/* Tab — Movie cuma punya "Server Stream", Series cuma punya "Episode & Server" */}
         <div className="flex gap-2 mb-5">
-          <button onClick={() => setTab('stream')} className={`${btnCls} ${tab === 'stream' ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400'}`}>
-            {isSeries ? 'Server (Tanpa Episode)' : 'Server Stream'}
-          </button>
+          {!isSeries && (
+            <button onClick={() => setTab('stream')} className={`${btnCls} ${tab === 'stream' ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400'}`}>
+              Server Stream
+            </button>
+          )}
           {isSeries && (
             <button onClick={() => setTab('episode')} className={`${btnCls} ${tab === 'episode' ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400'}`}>
               Episode & Server
@@ -234,37 +280,33 @@ export default function EditTitle({ params }) {
         {err && <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-xs rounded-xl px-4 py-3 mb-4">{err}</div>}
         {notice && <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs rounded-xl px-4 py-3 mb-4">{notice}</div>}
 
-        {/* ===== TAB: STREAM (movie / default) ===== */}
-        {tab === 'stream' && (
+        {/* ===== TAB: STREAM (movie saja) ===== */}
+        {!isSeries && tab === 'stream' && (
           <div className="bg-[#161b2c] border border-white/5 rounded-2xl p-5">
             <p className="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wider">Tambah Server Stream</p>
             <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
-              URL stream = link video asal (abyss / m3u8 / MP4). Nama server hanya label, mis. &quot;Abyss Utama&quot;. Prio 1 = dipakai duluan saat ada server lain.
+              URL stream = link video asal (abyss / m3u8 / MP4). Nama server hanya label, mis. &quot;Abyss Utama&quot;.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-              <input placeholder="Nama server (mis. Abyss Utama)" value={fServer} onChange={(e) => setFServer(e.target.value)} className={inputCls} />
+              <input placeholder="Nama server" value={fServer} onChange={(e) => setFServer(e.target.value)} className={inputCls} />
               <input placeholder="URL stream / slug abyss" value={fUrl} onChange={(e) => setFUrl(e.target.value)} className={inputCls + ' sm:col-span-2'} />
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] text-slate-500 font-bold uppercase shrink-0">Prio</span>
-              <input type="number" value={fPriority} onChange={(e) => setFPriority(Number(e.target.value))} className={inputCls + ' w-20'} title="Priority (1 = utama)" />
-              <button onClick={() => saveStream(title ? title.id : null)} disabled={saving || !title}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition">
-                {saving ? 'Menyimpan...' : 'Simpan Server'}
-              </button>
-            </div>
+            <button onClick={() => saveStream(title ? title.id : null)} disabled={saving || !title}
+              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition">
+              {saving ? 'Menyimpan...' : 'Simpan Server'}
+            </button>
 
             <p className="text-xs text-slate-400 mt-6 mb-2 font-semibold uppercase tracking-wider">Daftar Server ({streams.length})</p>
             {streams.length === 0 ? (
-              <p className="text-xs text-slate-500 py-4">Belum ada server. Tambahkan URL stream pertama (contoh: slug abyss).</p>
-            ) : streams.map((s) => (
+              <p className="text-xs text-slate-500 py-4">Belum ada server. Tambahkan URL stream pertama.</p>
+            ) : streams.map((s, i) => (
               <div key={s.id} className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-xl px-4 py-3 mb-2">
-                <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded">P{s.priority}</span>
+                <Arrows idx={i} total={streams.length} onMove={(a, b) => reorder(a, b)} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold">{s.server_name}</p>
                   <p className="text-[11px] text-slate-500 font-mono truncate">{s.stream_url}</p>
                 </div>
-                <button onClick={() => removeStream(s.id)} className="text-red-400 hover:text-red-300">
+                <button onClick={() => removeStream(s.id)} className="text-red-400 hover:text-red-300" title="Hapus server ini">
                   <span className="material-icons text-lg">delete</span>
                 </button>
               </div>
@@ -272,7 +314,7 @@ export default function EditTitle({ params }) {
           </div>
         )}
 
-        {/* ===== TAB: EPISODE ===== */}
+        {/* ===== TAB: EPISODE (series saja) ===== */}
         {tab === 'episode' && isSeries && (
           <div>
             {/* Pilih season */}
@@ -287,7 +329,7 @@ export default function EditTitle({ params }) {
               ))}
               <button onClick={autoAddEpisodes} disabled={saving}
                 className={`${btnCls} shrink-0 bg-emerald-600/80 hover:bg-emerald-600 text-white ml-auto disabled:opacity-50`}>
-                {saving ? 'Menyimpan...' : 'Simpan Semua Episode'}
+                {saving ? 'Simpan...' : 'Simpan Semua Episode'}
               </button>
             </div>
 
@@ -316,12 +358,13 @@ export default function EditTitle({ params }) {
                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Server Episode</p>
                       {(e.saved?.streams || []).map((s) => (
                         <div key={s.id} className="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2 mb-1.5">
-                          <span className="text-[10px] font-bold text-indigo-400">P{s.priority}</span>
                           <div className="flex-1 min-w-0">
                             <span className="text-xs font-semibold">{s.server_name}</span>
                             <p className="text-[10px] text-slate-500 font-mono truncate">{s.stream_url}</p>
                           </div>
-                          <button onClick={() => removeStream(s.id)} className="text-red-400 hover:text-red-300"><span className="material-icons text-sm">delete</span></button>
+                          <button onClick={() => removeStream(s.id)} className="text-red-400 hover:text-red-300" title="Hapus server ini">
+                            <span className="material-icons text-sm">delete</span>
+                          </button>
                         </div>
                       ))}
                       {(e.saved?.streams || []).length === 0 && <p className="text-[11px] text-slate-600 mb-2">Belum ada server untuk episode ini.</p>}
@@ -334,7 +377,6 @@ export default function EditTitle({ params }) {
                             if (!fUrl.trim()) { setErr('Isi URL stream dulu.'); return }
                             setSaving(true); setErr(''); setNotice('')
                             try {
-                              // pastikan record episode ada
                               let epId = e.saved?.id
                               if (!epId) {
                                 const rr = await fetch(`/api/catalog/${title.id}/episodes`, {

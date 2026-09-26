@@ -20,15 +20,29 @@ export async function POST(request, { params }) {
   const { id: titleId } = await params
   try {
     const b = await request.json()
+    if (!b.stream_url) return Response.json({ error: 'stream_url wajib diisi.' }, { status: 400 })
+
+    // Priority selalu di akhir daftar (1 = paling atas) — diurutkan user lewat
+    // tombol panah di UI, bukan diinput manual.
+    const kolom = b.episode_id ? 'episode_id' : 'title_id'
+    const { data: lastRows, error: lastErr } = await supabase
+      .from('op_streams')
+      .select('priority')
+      .eq(kolom, b.episode_id ?? titleId)
+      .order('priority', { ascending: false })
+      .limit(1)
+    if (lastErr) return Response.json({ error: lastErr.message }, { status: 500 })
+
+    const nextPrio = ((lastRows || [])[0]?.priority || 0) + 1
+
     const payload = {
       title_id: titleId,
       episode_id: b.episode_id || null,
       server_name: b.server_name || 'Abyss Utama',
       stream_url: b.stream_url,
-      priority: b.priority || 1,
+      priority: nextPrio,
       is_active: true,
     }
-    if (!payload.stream_url) return Response.json({ error: 'stream_url wajib diisi.' }, { status: 400 })
 
     const { data, error } = await supabase.from('op_streams').insert(payload).select().single()
     if (error) return Response.json({ error: error.message }, { status: 500 })
