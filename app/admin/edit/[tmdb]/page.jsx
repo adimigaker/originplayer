@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from '@/components/Toast'
 
 const inputCls = 'w-full bg-slate-800/60 border border-white/10 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm text-white outline-none transition'
 const btnCls = 'px-4 py-2 rounded-xl text-xs font-bold transition'
@@ -331,6 +332,30 @@ export default function EditTitle({ params }) {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Zona Berbahaya — hapus konten dari katalog */}
+        {title && (
+          <div className="mt-8 border-t border-red-500/20 pt-6">
+            <p className="text-xs text-slate-500 mb-3">Zona Berbahaya</p>
+            <button
+              onClick={async () => {
+                if (!confirm(`Hapus "${judul}" dari katalog secara permanen?`)) return
+                try {
+                  const r = await fetch(`/api/catalog/${title.id}`, { method: 'DELETE' })
+                  if (!r.ok) throw new Error('Server menolak')
+                  toast.success(`${judul} dihapus dari katalog`)
+                  router.push('/admin')
+                } catch (e) {
+                  toast.error('Gagal menghapus: ' + e.message)
+                }
+              }}
+              className="flex items-center gap-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5 text-sm font-medium transition"
+            >
+              <span className="material-icons text-lg">delete_forever</span>
+              Hapus "{judul}" dari katalog
+            </button>
           </div>
         )}
       </main>
