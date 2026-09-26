@@ -1,4 +1,5 @@
 import './globals.css'
+import ToastHost from '@/components/Toast'
 
 export const metadata = {
   title: {
@@ -16,6 +17,7 @@ export default function RootLayout({ children }) {
       </head>
       <body className="bg-slate-950 text-slate-100 min-h-screen antialiased">
         {children}
+        <ToastHost />
       </body>
     </html>
   )

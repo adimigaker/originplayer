@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import ToastHost, { toast } from '@/components/Toast'
 
 export default function AdminPage() {
   const [items, setItems] = useState([])
@@ -68,14 +69,13 @@ export default function AdminPage() {
         })
       })
       const d = await res.json()
-      // PENTING: hanya redirect kalau API benar-benar sukses
       if (!res.ok) throw new Error(d.error || `Server menolak (${res.status})`)
       setShowModal(false)
       fetchCatalog()
       router.push(`/admin/edit/${tmdbData.tmdb_id}`)
     } catch (e) {
-      setSaveErr('Gagal menambah konten: ' + e.message)
-      alert('Gagal menambah konten: ' + e.message)
+      setSaveErr(e.message)
+      toast.error(e.message)
     } finally {
       setSaving(false)
     }
@@ -85,9 +85,10 @@ export default function AdminPage() {
     if (!confirm('Hapus konten ini dari katalog secara permanen?')) return
     try {
       await fetch(`/api/catalog/${id}`, { method: 'DELETE' })
+      toast.success('Konten dihapus')
       fetchCatalog()
     } catch (e) {
-      alert('Gagal menghapus: ' + e.message)
+      toast.error('Gagal menghapus: ' + e.message)
     }
   }
 
@@ -121,6 +122,19 @@ export default function AdminPage() {
             <p className="text-slate-400 text-sm mt-1">Total {items.length} konten tersimpan di database.</p>
           </div>
         </div>
+
+        {saveErr && (
+          <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
+            <span className="material-icons text-red-400 text-lg shrink-0">error</span>
+            <div className="min-w-0">
+              <p className="text-red-300 text-sm font-semibold">Gagal menyimpan</p>
+              <p className="text-red-300/80 text-xs mt-0.5 break-words">{saveErr}</p>
+            </div>
+            <button onClick={() => setSaveErr('')} className="ml-auto text-red-400 hover:text-red-300 shrink-0">
+              <span className="material-icons text-lg">close</span>
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 opacity-50">
@@ -243,9 +257,11 @@ export default function AdminPage() {
                     <div className="flex items-center">
                       <button 
                         onClick={() => addTitle(res)}
-                        className="bg-white/10 hover:bg-indigo-600 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm"
+                        disabled={saving}
+                        className="bg-white/10 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm flex items-center gap-1"
                       >
-                        Tambah
+                        {saving ? <span className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" /> : <span className="material-icons text-sm">add</span>}
+                        {saving ? 'Proses...' : 'Tambah'}
                       </button>
                     </div>
                   </div>
