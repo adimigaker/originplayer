@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import ToastHost, { toast } from '@/components/Toast'
 
 export default function AdminPage() {
@@ -151,37 +152,54 @@ export default function AdminPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
             {items.map((item) => (
-              <div key={item.id} className="group relative bg-[#161b2c] rounded-xl overflow-hidden border border-white/5 hover:border-indigo-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10">
+              <Link
+                key={item.id}
+                href={`/admin/edit/${item.tmdb_id}`}
+                className="group block bg-[#161b2c] rounded-xl overflow-hidden border border-white/5 hover:border-indigo-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10"
+              >
                 <div className="aspect-[2/3] relative overflow-hidden bg-slate-800">
-                  <img 
-                    src={item.poster || '/placeholder.png'} 
-                    alt={item.title} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition duration-500" 
+                  <img
+                    src={item.poster || '/placeholder.png'}
+                    alt={item.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                   />
                   <div className="absolute top-2 left-2 flex gap-1">
-                     <span className="bg-black/60 backdrop-blur-md text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-indigo-300 border border-white/5">{item.type}</span>
+                    <span className="bg-black/60 backdrop-blur-md text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-indigo-300 border border-white/5">{item.type}</span>
                   </div>
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f1a] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                     <button 
-                        onClick={() => deleteTitle(item.id)}
-                        className="bg-red-500/20 hover:bg-red-500 backdrop-blur-md text-red-400 hover:text-white p-2 rounded-lg transition-all border border-red-500/30 mb-2 flex items-center justify-center gap-2 text-xs font-bold"
-                     >
-                        <span className="material-icons text-sm">delete</span> Hapus
-                     </button>
-                     <a 
-                        href={`/admin/edit/${item.tmdb_id}`}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-lg transition-all text-center text-xs font-bold shadow-lg shadow-indigo-500/20"
-                     >
-                        Kelola Stream
-                     </a>
+                    <div className="text-center">
+                      <span className="material-icons text-lg">open_in_new</span>
+                      <p className="text-[11px] font-bold text-white mt-1">Kelola Stream</p>
+                    </div>
                   </div>
                 </div>
                 <div className="p-3">
                   <h3 className="font-bold text-sm truncate group-hover:text-indigo-400 transition">{item.title}</h3>
                   <p className="text-[10px] text-slate-500 font-medium mt-1">{item.year} • ★ {item.rating}</p>
                 </div>
-              </div>
+              </Link>
             ))}
+          </div>
+        )}
+
+        {/* Hapus terpisah di bawah grid */}
+        {items.length > 0 && (
+          <div className="mt-8 border-t border-white/5 pt-6">
+            <h3 className="text-sm font-semibold text-slate-400 mb-3 flex items-center gap-2">
+              <span className="material-icons text-red-400">delete_forever</span> Hapus Konten
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => deleteTitle(item.id)}
+                  className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-3 py-2 rounded-lg text-xs font-medium transition border border-red-500/20 flex items-center gap-1.5"
+                >
+                  <span className="material-icons text-sm">delete</span>
+                  {item.title}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </main>
