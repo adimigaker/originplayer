@@ -622,7 +622,6 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
             style={{ width: '100%', accentColor: AKSEN, margin: 0 }} />
         </div>
       </div>
-      <p style={{ color: AKSEN, fontSize: 13, minHeight: 18 }}>{status}</p>
     </div>
   )
 }
