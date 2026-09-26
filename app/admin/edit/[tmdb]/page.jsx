@@ -164,6 +164,33 @@ export default function EditTitle({ params }) {
     }
   }
 
+  // Reorder stream dalam satu episode
+  async function reorderEpisodeStream(epDbId, idxA, idxB) {
+    const ep = eps.find((x) => x.saved?.id === epDbId)
+    if (!ep || idxA === idxB) return
+    const list = [...(ep.saved.streams || [])]
+    if (idxB < 0 || idxB >= list.length) return
+    const [pindah] = list.splice(idxA, 1)
+    list.splice(idxB, 0, pindah)
+
+    // Optimistic UI
+    setEps((prev) => prev.map((x) => (
+      x.saved?.id === epDbId ? { ...x, saved: { ...x.saved, streams: list } } : x
+    )))
+    try {
+      const r = await fetch(`/api/catalog/${title.id}/streams/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: list.map((s) => s.id) }),
+      })
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Gagal reorder') }
+      setNotice('✓ Urutan server episode diperbarui.')
+    } catch (e) {
+      setErr(e.message)
+      loadEpisodes(season, title.id)
+    }
+  }
+
   async function autoAddEpisodes() {
     setSaving(true); setErr(''); setNotice('')
     try {
@@ -220,7 +247,7 @@ export default function EditTitle({ params }) {
             <div className="flex-1">
               <h1 className="font-bold leading-tight truncate max-w-[60vw] text-sm">{judul}</h1>
               <p className="text-[11px] text-slate-500">
-                {isSeries ? `TV Series • S{season}` : 'Movie'} • TMDB {tmdbId}
+                {isSeries ? `TV Series • S${season} • TMDB ${tmdbId}` : 'Movie'} • TMDB {tmdbId}
               </p>
             </div>
             {title && (
@@ -361,13 +388,18 @@ export default function EditTitle({ params }) {
                     {/* Server untuk episode ini */}
                     <div className="px-4 pb-4 border-t border-white/5 pt-3">
                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Server Episode</p>
-                      {(e.saved?.streams || []).map((s) => (
-                        <div key={s.id} className="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2 mb-1.5">
+                      {(e.saved?.streams || []).map((s, si) => (
+                        <div key={s.id} className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 mb-1.5">
+                          <Arrows
+                            idx={si}
+                            total={e.saved.streams.length}
+                            onMove={(a, b) => reorderEpisodeStream(e.saved.id, a, b)}
+                          />
                           <div className="flex-1 min-w-0">
                             <span className="text-xs font-semibold">{s.server_name}</span>
                             <p className="text-[10px] text-slate-500 font-mono truncate">{s.stream_url}</p>
                           </div>
-                          <button onClick={() => removeStream(s.id)} className="text-red-400 hover:text-red-300" title="Hapus server ini">
+                          <button onClick={() => removeStream(s.id)} className="text-red-400 hover:text-red-300 shrink-0" title="Hapus server ini">
                             <span className="material-icons text-sm">delete</span>
                           </button>
                         </div>
