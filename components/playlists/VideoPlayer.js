@@ -407,8 +407,10 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
     st('Cek kualitas...')
     for (const s of daftar) {
       try {
-        const pr = await fetch(s.purl, { headers: { Range: 'bytes=0-0' } })
-        s.ok = pr.status === 206 || pr.ok
+        // Prefetch hanya 2 byte (0-1) supaya cepat, pakai 0-0 (0-0) tidak efisien offline
+        const pr = await fetch(s.purl, { headers: { Range: 'bytes=0-1' } })
+        // Status OK (200 atau 206) cukup artinya server merespon
+        s.ok = pr.ok || pr.status === 206
       } catch (e) { s.ok = false }
     }
     dataRef.current = { levels: [], proxy: '', meta: null, abyss: daftar }
