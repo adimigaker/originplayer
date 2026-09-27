@@ -123,7 +123,12 @@ export default function EditTitle({ params }) {
     if (!url) { setErr('Isi URL stream dulu.'); return }
     setSaving(true); setErr(''); setNotice('')
     try {
-      const payload = { server_name: server, stream_url: url, episode_id: episodeId || null }
+      const payload = {
+        server_name: server,
+        stream_url: url,
+        title_id: title.id,
+        ...(episodeId ? { episode_id: episodeId } : {}),
+      }
       const r = await fetch(`/api/catalog/${title.id}/streams`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
