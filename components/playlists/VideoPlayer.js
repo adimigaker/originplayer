@@ -401,10 +401,10 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
     const top = daftar.find((s) => s.ok && /720p/.test(s.label)) || daftar.find((s) => s.ok)
     if (!top) { st('Abyss gagal: semua kualitas mati di server.'); return }
     setQAktif(daftar.indexOf(top))
-    v.onerror = () => { st('Video error — coba kualitas lain.') }
+    v.addEventListener('error', () => { st('Video error — coba kualitas lain.') })
     v.src = top.purl
+    v.load()
     st(`OK — Abyss ${top.label}`)
-    if (autoPutar) v.play().catch(() => {})
     // Versi penuh: VM rakit file statis sekali; pindah otomatis saat siap
     const qiTop = daftar.indexOf(top)
     const sesiAb = (abSesi.current += 1)
@@ -418,6 +418,15 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
         if (jj.ready) {
           const urlPenuh = `${base}/pdfile?ab=${encodeURIComponent(slug)}&q=${qiTop}`
           if (v.currentSrc === urlPenuh || v.src === urlPenuh) return
+          // Validasi dulu: ready:true bisa saja masih 409/ukuran 0 (bukan video!)
+          if (!jj.size) { setTimeout(pantauAb, 8000); return }
+          try {
+            const ck = await fetch(urlPenuh, { headers: { Range: 'bytes=0-0' } })
+            const ct = ck.headers.get('content-type') || ''
+            if (!ck.ok || ck.status !== 206 || ct.includes('json') || ct.includes('html')) {
+              setTimeout(pantauAb, 8000); return
+            }
+          } catch (e2) { setTimeout(pantauAb, 8000); return }
           const t = v.currentTime || 0, lagi = !v.paused
           const sekali = () => {
             v.removeEventListener('loadedmetadata', sekali)
@@ -576,7 +585,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
         {/* tombol putar besar / status overlay */}
         {(jeda || !status.includes('OK')) && (
           <div onClick={(e) => { e.stopPropagation(); if (status.includes('OK') || status.includes('Siap')) putarJeda() }}
-            style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,.6)', zIndex: 5, padding: '0 20px' }}>
+            style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,.6)', zIndex: 3, padding: '0 20px', pointerEvents: 'none' }}>
             
             {/* Status loading/error */}
             {(!status.includes('OK') && !status.includes('Siap')) && (
@@ -587,7 +596,7 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
 
             {/* Tombol putar */}
             {(status.includes('OK') || status.includes('Siap')) && (
-              <span style={{ ...bigBtn, pointerEvents: 'auto' }}><Ikon nama={jalan ? 'jeda' : 'putar'} size={40} /></span>
+              <span style={{ ...bigBtn, pointerEvents: 'auto', zIndex: 4 }}><Ikon nama={jalan ? 'jeda' : 'putar'} size={40} /></span>
             )}
           </div>
         )}
@@ -596,28 +605,26 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
         {flash === 'L' && <span style={{ ...flashSt, left: 14 }}>−10 dtk</span>}
         {flash === 'R' && <span style={{ ...flashSt, right: 14 }}>+10 dtk</span>}
 
-        {/* setelan: bottom sheet + sentuh luar = tutup */}
+        {/* setelan: toast kecil pojok kanan atas */}
         {cfgBuka && (
           <>
-            <div onClick={(e) => { e.stopPropagation(); setCfgBuka(false); tampilUI() }} style={{ ...sheetBg, zIndex: 8 }} />
-            <div style={{ ...sheet, zIndex: 9 }} onClick={(e) => e.stopPropagation()}>
-              <div style={sheetGrip} />
-              <div style={sheetJudul}>Setelan</div>
-              <div style={sheetLbl}>Kualitas</div>
+            <div onClick={(e) => { e.stopPropagation(); setCfgBuka(false); tampilUI() }} style={{ position: 'fixed', inset: 0, zIndex: 8, background: 'transparent' }} />
+            <div style={{ position: 'absolute', top: 52, right: 8, background: '#1a1a2e', borderRadius: 10, padding: '8px 10px', zIndex: 9, minWidth: 140, boxShadow: '0 4px 20px rgba(0,0,0,.5)' }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ fontSize: 12, fontWeight: 'bold', color: '#fff', marginBottom: 6 }}>Setelan</div>
               {kualitas.length > 1 ? (
                 kualitas.map((k) => (
-                  <button key={k.i} onClick={() => gantiKualitas(k.i)} style={k.i === qAktif ? optOn : opt}>
-                    <span style={{ flex: 1, textAlign: 'left' }}>{k.label}</span>
-                    {k.i === qAktif && <Ikon nama="cek" size={16} />}
+                  <button key={k.i} onClick={() => { gantiKualitas(k.i); setCfgBuka(false) }} style={{ display: 'block', width: '100%', background: k.i === qAktif ? 'rgba(0,164,220,.3)' : 'transparent', color: '#eee', border: 'none', borderRadius: 5, padding: '5px 8px', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+                    {k.label}
+                    {k.i === qAktif && ' ✓'}
                   </button>
                 ))
               ) : (
-                <div style={sheetKosong}>Otomatis</div>
+                <div style={{ color: '#888', fontSize: 12, padding: '3px 0' }}>Otomatis</div>
               )}
-              <div style={sheetLbl}>Kecepatan</div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ borderTop: '1px solid #333', margin: '4px 0' }} />
+              <div style={{ display: 'flex', gap: 6 }}>
                 {[0.5, 1, 1.5, 2].map((s) => (
-                  <button key={s} onClick={() => gantiKecepatan(s)} style={s === kecepatan ? optOnFlex : optFlex}>{s}x</button>
+                  <button key={s} onClick={() => { gantiKecepatan(s); setCfgBuka(false) }} style={{ flex: 1, background: kecepatan === s ? 'rgba(0,164,220,.3)' : 'transparent', color: '#eee', border: 'none', borderRadius: 5, padding: '4px 0', fontSize: 11, cursor: 'pointer' }}>{s}x</button>
                 ))}
               </div>
             </div>
