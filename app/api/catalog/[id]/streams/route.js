@@ -22,13 +22,26 @@ export async function POST(request, { params }) {
     const b = await request.json()
     if (!b.stream_url) return Response.json({ error: 'stream_url wajib diisi.' }, { status: 400 })
 
+    // episode_id hanya valid kalau benar-benar ada di op_episodes.
+    // Movie (dan bug lama) bisa mengirim id tak-valid → paksa null agar
+    // insert jatuh ke title_id, bukan melanggar FK op_streams_episode_id_fkey.
+    let episodeId = b.episode_id || null
+    if (episodeId) {
+      const { data: epRow, error: epErr } = await supabase
+        .from('op_episodes')
+        .select('id')
+        .eq('id', episodeId)
+        .maybeSingle()
+      if (epErr || !epRow) episodeId = null
+    }
+
     // Priority selalu di akhir daftar (1 = paling atas) — diurutkan user lewat
     // tombol panah di UI, bukan diinput manual.
-    const kolom = b.episode_id ? 'episode_id' : 'title_id'
+    const kolom = episodeId ? 'episode_id' : 'title_id'
     const { data: lastRows, error: lastErr } = await supabase
       .from('op_streams')
       .select('priority')
-      .eq(kolom, b.episode_id ?? titleId)
+      .eq(kolom, episodeId ?? titleId)
       .order('priority', { ascending: false })
       .limit(1)
     if (lastErr) return Response.json({ error: lastErr.message }, { status: 500 })
@@ -37,7 +50,7 @@ export async function POST(request, { params }) {
 
     const payload = {
       title_id: titleId,
-      episode_id: b.episode_id || null,
+      episode_id: episodeId,
       server_name: b.server_name || 'Abyss Utama',
       stream_url: b.stream_url,
       priority: nextPrio,
