@@ -51,7 +51,7 @@ export default function WatchTVEmbedPage({ params }) {
 
   const primary = data.streams[0]
   const tvTitle = data.meta.title || data.meta.name || 'Series'
-  const title = `${tvTitle} - S${season}E${ep}`.replace(/^(.*) - S(\d+)E(\d+)$/, '**$1** - S$2E$3')
+  const title = `${tvTitle} - S${season}E${ep}`
 
   return (
     <div className="w-screen h-screen bg-black overflow-hidden flex items-center justify-center">
