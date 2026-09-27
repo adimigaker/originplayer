@@ -33,9 +33,11 @@ export default function SeriesPage({ params }) {
   if (loading) return <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center text-slate-500">Memuat...</div>
   if (!data) return <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center text-slate-500">Error.</div>
 
+  const seriesTitle = data.meta.title || data.meta.name || 'Series'
+
   return (
     <div className="min-h-screen bg-[#0b0f1a] text-white p-6">
-      <h1 className="text-2xl font-bold mb-6">{data.meta.name}</h1>
+      <h1 className="text-2xl font-bold mb-6">{seriesTitle}</h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {data.episodes.map((ep) => (
           <Link key={ep.id} href={`/tv/${id}/${ep.season_number}/${ep.episode_number}`} className="bg-white/5 p-4 rounded-xl hover:bg-white/10">
