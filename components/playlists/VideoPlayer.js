@@ -53,10 +53,17 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
   const [kecepatan, setKecepatan] = useState(1)
   const pertama = useRef(false)
   const dataRef = useRef({ levels: [], proxy: '', meta: null, abyss: [] })
-  const abSesi = useRef(0) // token pantau versi-penuh abyss (batalkan yg basi)
 
   const st = (m) => setStatus(m)
-  const px = () => (tunnel ? tunnel.replace(/\/$/, '') + '/proxy?url=' : '/proxy?url=')
+  const pxBase = () => {
+    if (Array.isArray(tunnel?.bases)) return tunnel.bases[0] || ''
+    if (tunnel?.bases) return tunnel.bases[0] || ''
+    return typeof tunnel === 'string' ? tunnel : ''
+  }
+  const px = () => {
+    const b = pxBase().replace(/\/$/, '')
+    return b ? b + '/proxy?url=' : '/proxy?url='
+  }
   const vid = () => vRef.current
 
   const hancurkanHls = () => {
@@ -370,18 +377,27 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
     } catch (e) {}
   }
 
-  // ── abyss: via /abyss + /abyssplay tunnel ──
+  // ── abyss: coba tiap base proxy (Worker utama → VM fallback) sampai ada yang jalan ──
   const mulaiAbyss = async (raw) => {
     const v = vid()
     const m = String(raw).match(/abyssplayer\.com\/([A-Za-z0-9_-]{7,17})/)
     const slug = m ? m[1] : (String(raw).match(/[A-Za-z0-9_-]{7,17}/g) || []).pop() || ''
     if (!slug) { st('Slug abyss tidak ketemu.'); return }
     st('Minta link abyss...')
-    const base = tunnel ? tunnel.replace(/\/$/, '') : ''
-    const r = await fetch(`${base}/abyss?slug=${encodeURIComponent(slug)}`)
-    if (!r.ok) throw new Error('backend abyss mati (' + r.status + ') — cek tunnel.')
-    const data = await r.json()
-    if (!data.sources?.length) { st('Abyss gagal: ' + (data.error || 'tanpa sources')); return }
+    const bases = (tunnel && Array.isArray(tunnel.bases) ? tunnel.bases : [String(tunnel || '').replace(/\/$/, '')]).filter(Boolean)
+    let base = null
+    let data = null
+    for (const b of bases) {
+      try {
+        const r = await fetch(`${b}/abyss?slug=${encodeURIComponent(slug)}`)
+        if (!r.ok) throw new Error(String(r.status))
+        const j = await r.json()
+        if (!j.sources?.length) throw new Error(j.error || 'tanpa sources')
+        base = b; data = j
+        break
+      } catch (e) {}
+    }
+    if (!base) { st('Abyss gagal: semua proxy error.'); return }
     const daftar = data.sources.map((s, qi) => ({
       label: `${s.label} (${(s.size / 1073741824).toFixed(1)} GB)`,
       qi, size: s.size,
@@ -405,44 +421,6 @@ export default function VideoPlayer({ embedUrl, title, tunnel, onPertamaPutar, a
     v.src = top.purl
     v.load()
     st(`OK — Abyss ${top.label}`)
-    // Versi penuh: VM rakit file statis sekali; pindah otomatis saat siap
-    const qiTop = daftar.indexOf(top)
-    const sesiAb = (abSesi.current += 1)
-    try { fetch(`${base}/pdfile?ab=${encodeURIComponent(slug)}&q=${qiTop}&prepare=1`).catch(() => {}) } catch (e) {}
-    const pantauAb = async () => {
-      if (sesiAb !== abSesi.current) return
-      try {
-        const rr = await fetch(`${base}/pdfile?ab=${encodeURIComponent(slug)}&q=${qiTop}&stat=1`)
-        const jj = await rr.json()
-        if (sesiAb !== abSesi.current) return
-        if (jj.ready) {
-          const urlPenuh = `${base}/pdfile?ab=${encodeURIComponent(slug)}&q=${qiTop}`
-          if (v.currentSrc === urlPenuh || v.src === urlPenuh) return
-          // Validasi dulu: ready:true bisa saja masih 409/ukuran 0 (bukan video!)
-          if (!jj.size) { setTimeout(pantauAb, 8000); return }
-          try {
-            const ck = await fetch(urlPenuh, { headers: { Range: 'bytes=0-0' } })
-            const ct = ck.headers.get('content-type') || ''
-            if (!ck.ok || ck.status !== 206 || ct.includes('json') || ct.includes('html')) {
-              setTimeout(pantauAb, 8000); return
-            }
-          } catch (e2) { setTimeout(pantauAb, 8000); return }
-          const t = v.currentTime || 0, lagi = !v.paused
-          const sekali = () => {
-            v.removeEventListener('loadedmetadata', sekali)
-            try { if (t > 1) v.currentTime = t } catch (e2) {}
-            if (lagi || autoPutar) v.play().catch(() => {})
-            st(`OK — versi penuh Abyss ${top.label} (seekbar natural).`)
-          }
-          v.addEventListener('loadedmetadata', sekali)
-          v.src = urlPenuh
-          st('Versi penuh siap — pindah (posisi aman)...')
-          return
-        }
-      } catch (e) {}
-      setTimeout(pantauAb, 8000)
-    }
-    setTimeout(pantauAb, 10000)
   }
 
   const mulaiLangsung = async (raw) => {

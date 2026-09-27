@@ -2,19 +2,19 @@
 
 import { use, useState, useEffect } from 'react'
 import VideoPlayer from '@/components/playlists/VideoPlayer'
-import { tunnelBase } from '@/lib/playlist'
+import { tunnelBase, proxyBases } from '@/lib/playlist'
 
 export default function WatchTVEmbedPage({ params }) {
   const { id, season, ep } = use(params)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tunnel, setTunnel] = useState('')
+  const [tunnel, setTunnel] = useState(null)
 
   useEffect(() => {
     const init = async () => {
       try {
         setLoading(true)
-        setTunnel(await tunnelBase())
+        setTunnel(await proxyBases())
         
         const resMeta = await fetch(`/api/tmdb?tmdb=${id}&media=tv`)
         const meta = await resMeta.json()

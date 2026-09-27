@@ -3,7 +3,7 @@
 // Halaman nonton langsung: /p/KODE/slug-judul/EP
 // Player native (tidak autoplay) + gate PIN. Navigasi antar episode = reload.
 import { useState, useEffect } from 'react'
-import { sha256hex, tunnelBase, simpanProgress, bacaProgress, hapusProgress } from '@/lib/playlist'
+import { sha256hex, tunnelBase, proxyBases, simpanProgress, bacaProgress, hapusProgress } from '@/lib/playlist'
 import VideoPlayer from '@/components/playlists/VideoPlayer'
 import Ikon from '@/components/playlists/Ikon'
 
@@ -12,7 +12,7 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
   const [pin, setPin] = useState('')
   const [pinErr, setPinErr] = useState('')
   const [ep, setEp] = useState(epAwal)
-  const [tunnel, setTunnel] = useState('')
+  const [tunnel, setTunnel] = useState(null)
   const [ditonton, setDitonton] = useState(false)
   const [prog, setProg] = useState({})
 
@@ -22,7 +22,7 @@ export default function WatchClient({ code, hasPinServer, item, epAwal }) {
       await Promise.resolve()
       if (!hidup) return
       if (typeof window !== 'undefined' && sessionStorage.getItem('ps_unlock_' + code)) setTerkunci(false)
-      setTunnel(await tunnelBase())
+      setTunnel(await proxyBases())
       setDitonton(!!bacaProgress(code)[item.id + ':' + epAwal])
       setProg(bacaProgress(code))
     })()
